@@ -1,3 +1,6 @@
+pub const TONAL_ELEVATION_LOG_SCALE: f32 = 4.5;
+pub const TONAL_ELEVATION_BASE_PERCENT: f32 = 2.0;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ColorRole {
     Primary,

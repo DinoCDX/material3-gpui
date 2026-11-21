@@ -1,7 +1,12 @@
+pub use crate::systems::interaction::InteractionFlags;
+pub use crate::systems::interaction::controller::InteractionController;
+pub use crate::systems::surface::interactive::InteractiveSurface;
+pub use crate::systems::surface::{Surface, SurfaceStyle};
 pub use crate::systems::theme::scheme::ColorScheme;
 pub use crate::systems::theme::typography::Typography;
 pub use crate::systems::theme::{ActiveTheme, MaterialTheme, ThemeMode};
 pub use crate::tokens::color::{ColorRole, KeyRole, SurfaceTier};
 pub use crate::tokens::elevation::ElevationLevel;
 pub use crate::tokens::shape::CornerRadius;
+pub use crate::tokens::state::StateLayer;
 pub use crate::tokens::typography::TypeStyle;

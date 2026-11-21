@@ -1,0 +1,160 @@
+pub type Point2 = (f32, f32);
+
+pub const CIRCLE_SEGMENTS: usize = 128;
+pub const CORNER_SEGMENTS: usize = 16;
+
+pub fn circle_polygon(center: Point2, radius: f32, segments: usize) -> Vec<Point2> {
+    (0..segments)
+        .map(|index| {
+            let angle = std::f32::consts::TAU * index as f32 / segments as f32;
+            (center.0 + radius * angle.cos(), center.1 + radius * angle.sin())
+        })
+        .collect()
+}
+
+pub fn rounded_rect_polygon(
+    origin: Point2,
+    size: Point2,
+    radius: f32,
+    segments_per_corner: usize,
+) -> Vec<Point2> {
+    let (x, y) = origin;
+    let (width, height) = size;
+    let corners = [
+        ((x + radius, y + radius), std::f32::consts::PI),
+        ((x + width - radius, y + radius), std::f32::consts::PI * 1.5),
+        ((x + width - radius, y + height - radius), 0.0),
+        ((x + radius, y + height - radius), std::f32::consts::FRAC_PI_2),
+    ];
+    let mut points = Vec::with_capacity(4 * (segments_per_corner + 1));
+    for (center, start) in corners {
+        for step in 0..=segments_per_corner {
+            let fraction = step as f32 / segments_per_corner as f32;
+            let angle = start + std::f32::consts::FRAC_PI_2 * fraction;
+            points.push((
+                center.0 + radius * angle.cos(),
+                center.1 + radius * angle.sin(),
+            ));
+        }
+    }
+    points
+}
+
+pub fn signed_area(polygon: &[Point2]) -> f32 {
+    let count = polygon.len();
+    (0..count)
+        .map(|index| {
+            let (x1, y1) = polygon[index];
+            let (x2, y2) = polygon[(index + 1) % count];
+            x1 * y2 - x2 * y1
+        })
+        .sum::<f32>()
+        / 2.0
+}
+
+pub fn clip_convex(subject: &[Point2], clip: &[Point2]) -> Vec<Point2> {
+    let clip: Vec<Point2> = if signed_area(clip) < 0.0 {
+        clip.iter().rev().copied().collect()
+    } else {
+        clip.to_vec()
+    };
+    let mut output = subject.to_vec();
+    for index in 0..clip.len() {
+        if output.is_empty() {
+            break;
+        }
+        let edge_start = clip[index];
+        let edge_end = clip[(index + 1) % clip.len()];
+        let input = std::mem::take(&mut output);
+        let count = input.len();
+        for current_index in 0..count {
+            let current = input[current_index];
+            let previous = input[(current_index + count - 1) % count];
+            let current_inside = is_inside(edge_start, edge_end, current);
+            let previous_inside = is_inside(edge_start, edge_end, previous);
+            if current_inside {
+                if !previous_inside {
+                    output.push(intersection(previous, current, edge_start, edge_end));
+                }
+                output.push(current);
+            } else if previous_inside {
+                output.push(intersection(previous, current, edge_start, edge_end));
+            }
+        }
+    }
+    output
+}
+
+fn is_inside(edge_start: Point2, edge_end: Point2, point: Point2) -> bool {
+    cross(
+        (edge_end.0 - edge_start.0, edge_end.1 - edge_start.1),
+        (point.0 - edge_start.0, point.1 - edge_start.1),
+    ) >= 0.0
+}
+
+fn intersection(p1: Point2, p2: Point2, a: Point2, b: Point2) -> Point2 {
+    let direction = (p2.0 - p1.0, p2.1 - p1.1);
+    let edge = (b.0 - a.0, b.1 - a.1);
+    let denominator = cross(direction, edge);
+    if denominator.abs() < f32::EPSILON {
+        return p2;
+    }
+    let t = cross((a.0 - p1.0, a.1 - p1.1), edge) / denominator;
+    (p1.0 + direction.0 * t, p1.1 + direction.1 * t)
+}
+
+fn cross(a: Point2, b: Point2) -> f32 {
+    a.0 * b.1 - a.1 * b.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn area(polygon: &[Point2]) -> f32 {
+        signed_area(polygon).abs()
+    }
+
+    #[test]
+    fn circle_inside_rectangle_is_unchanged() {
+        let circle = circle_polygon((50.0, 50.0), 20.0, CIRCLE_SEGMENTS);
+        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let clipped = clip_convex(&circle, &rect);
+        assert!((area(&clipped) - area(&circle)).abs() < 1e-2 * area(&circle));
+    }
+
+    #[test]
+    fn circle_outside_rectangle_is_removed() {
+        let circle = circle_polygon((500.0, 500.0), 20.0, CIRCLE_SEGMENTS);
+        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        assert!(clip_convex(&circle, &rect).len() < 3);
+    }
+
+    #[test]
+    fn rounded_corners_remove_area_from_a_rectangle_clip() {
+        let circle = circle_polygon((50.0, 50.0), 60.0, CIRCLE_SEGMENTS);
+        let square = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let rounded = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 50.0, CORNER_SEGMENTS);
+        let square_area = area(&clip_convex(&circle, &square));
+        let rounded_area = area(&clip_convex(&circle, &rounded));
+        assert!(rounded_area < square_area);
+    }
+
+    #[test]
+    fn full_radius_clip_is_a_circle() {
+        let circle = circle_polygon((50.0, 50.0), 60.0, CIRCLE_SEGMENTS);
+        let rounded = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 50.0, CORNER_SEGMENTS);
+        let expected = std::f32::consts::PI * 50.0 * 50.0;
+        assert!((area(&clip_convex(&circle, &rounded)) - expected).abs() < 0.02 * expected);
+    }
+
+    #[test]
+    fn clip_orientation_does_not_matter() {
+        let circle = circle_polygon((50.0, 50.0), 20.0, CIRCLE_SEGMENTS);
+        let mut rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let forward = area(&clip_convex(&circle, &rect));
+        rect.reverse();
+        let backward = area(&clip_convex(&circle, &rect));
+        assert!((forward - backward).abs() < 1e-2 * forward);
+    }
+}
