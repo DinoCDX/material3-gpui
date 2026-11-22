@@ -12,22 +12,40 @@ pub fn circle_polygon(center: Point2, radius: f32, segments: usize) -> Vec<Point
         .collect()
 }
 
+pub fn clamp_corners(radii: [f32; 4], size: Point2) -> [f32; 4] {
+    let limit = size.0.min(size.1) / 2.0;
+    radii.map(|radius| radius.clamp(0.0, limit))
+}
+
 pub fn rounded_rect_polygon(
     origin: Point2,
     size: Point2,
-    radius: f32,
+    radii: [f32; 4],
     segments_per_corner: usize,
 ) -> Vec<Point2> {
     let (x, y) = origin;
     let (width, height) = size;
+    let [top_left, top_right, bottom_right, bottom_left] = clamp_corners(radii, size);
     let corners = [
-        ((x + radius, y + radius), std::f32::consts::PI),
-        ((x + width - radius, y + radius), std::f32::consts::PI * 1.5),
-        ((x + width - radius, y + height - radius), 0.0),
-        ((x + radius, y + height - radius), std::f32::consts::FRAC_PI_2),
+        ((x + top_left, y + top_left), std::f32::consts::PI, top_left),
+        (
+            (x + width - top_right, y + top_right),
+            std::f32::consts::PI * 1.5,
+            top_right,
+        ),
+        (
+            (x + width - bottom_right, y + height - bottom_right),
+            0.0,
+            bottom_right,
+        ),
+        (
+            (x + bottom_left, y + height - bottom_left),
+            std::f32::consts::FRAC_PI_2,
+            bottom_left,
+        ),
     ];
     let mut points = Vec::with_capacity(4 * (segments_per_corner + 1));
-    for (center, start) in corners {
+    for (center, start, radius) in corners {
         for step in 0..=segments_per_corner {
             let fraction = step as f32 / segments_per_corner as f32;
             let angle = start + std::f32::consts::FRAC_PI_2 * fraction;
@@ -111,6 +129,8 @@ fn cross(a: Point2, b: Point2) -> f32 {
 mod tests {
     use super::*;
 
+    const SQUARE: [f32; 4] = [0.0; 4];
+
     fn area(polygon: &[Point2]) -> f32 {
         signed_area(polygon).abs()
     }
@@ -118,7 +138,7 @@ mod tests {
     #[test]
     fn circle_inside_rectangle_is_unchanged() {
         let circle = circle_polygon((50.0, 50.0), 20.0, CIRCLE_SEGMENTS);
-        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), SQUARE, CORNER_SEGMENTS);
         let clipped = clip_convex(&circle, &rect);
         assert!((area(&clipped) - area(&circle)).abs() < 1e-2 * area(&circle));
     }
@@ -126,32 +146,50 @@ mod tests {
     #[test]
     fn circle_outside_rectangle_is_removed() {
         let circle = circle_polygon((500.0, 500.0), 20.0, CIRCLE_SEGMENTS);
-        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), SQUARE, CORNER_SEGMENTS);
         assert!(clip_convex(&circle, &rect).len() < 3);
     }
 
     #[test]
     fn rounded_corners_remove_area_from_a_rectangle_clip() {
         let circle = circle_polygon((50.0, 50.0), 60.0, CIRCLE_SEGMENTS);
-        let square = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
-        let rounded = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 50.0, CORNER_SEGMENTS);
-        let square_area = area(&clip_convex(&circle, &square));
-        let rounded_area = area(&clip_convex(&circle, &rounded));
-        assert!(rounded_area < square_area);
+        let square = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), SQUARE, CORNER_SEGMENTS);
+        let rounded =
+            rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), [50.0; 4], CORNER_SEGMENTS);
+        assert!(area(&clip_convex(&circle, &rounded)) < area(&clip_convex(&circle, &square)));
     }
 
     #[test]
     fn full_radius_clip_is_a_circle() {
         let circle = circle_polygon((50.0, 50.0), 60.0, CIRCLE_SEGMENTS);
-        let rounded = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 50.0, CORNER_SEGMENTS);
+        let rounded =
+            rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), [9999.0; 4], CORNER_SEGMENTS);
         let expected = std::f32::consts::PI * 50.0 * 50.0;
         assert!((area(&clip_convex(&circle, &rounded)) - expected).abs() < 0.02 * expected);
     }
 
     #[test]
+    fn directional_corners_only_round_the_named_corners() {
+        let rect = rounded_rect_polygon(
+            (0.0, 0.0),
+            (100.0, 100.0),
+            [50.0, 0.0, 0.0, 0.0],
+            CORNER_SEGMENTS,
+        );
+        let full = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), SQUARE, CORNER_SEGMENTS);
+        assert!(area(&rect) < area(&full));
+        assert!(rect.iter().any(|point| (point.0 - 100.0).abs() < 1e-3 && point.1.abs() < 1e-3));
+    }
+
+    #[test]
+    fn radii_are_clamped_to_half_the_short_side() {
+        assert_eq!(clamp_corners([99.0; 4], (40.0, 60.0)), [20.0; 4]);
+    }
+
+    #[test]
     fn clip_orientation_does_not_matter() {
         let circle = circle_polygon((50.0, 50.0), 20.0, CIRCLE_SEGMENTS);
-        let mut rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), 0.0, CORNER_SEGMENTS);
+        let mut rect = rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), SQUARE, CORNER_SEGMENTS);
         let forward = area(&clip_convex(&circle, &rect));
         rect.reverse();
         let backward = area(&clip_convex(&circle, &rect));

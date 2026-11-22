@@ -1,6 +1,3 @@
-pub const TONAL_ELEVATION_LOG_SCALE: f32 = 4.5;
-pub const TONAL_ELEVATION_BASE_PERCENT: f32 = 2.0;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ColorRole {
     Primary,
@@ -40,10 +37,22 @@ pub enum ColorRole {
     InverseOnSurface,
     Shadow,
     Scrim,
+    PrimaryFixed,
+    PrimaryFixedDim,
+    OnPrimaryFixed,
+    OnPrimaryFixedVariant,
+    SecondaryFixed,
+    SecondaryFixedDim,
+    OnSecondaryFixed,
+    OnSecondaryFixedVariant,
+    TertiaryFixed,
+    TertiaryFixedDim,
+    OnTertiaryFixed,
+    OnTertiaryFixedVariant,
 }
 
 impl ColorRole {
-    pub const ALL: [ColorRole; 37] = [
+    pub const ALL: [ColorRole; 49] = [
         ColorRole::Primary,
         ColorRole::OnPrimary,
         ColorRole::PrimaryContainer,
@@ -81,9 +90,24 @@ impl ColorRole {
         ColorRole::InverseOnSurface,
         ColorRole::Shadow,
         ColorRole::Scrim,
+        ColorRole::PrimaryFixed,
+        ColorRole::PrimaryFixedDim,
+        ColorRole::OnPrimaryFixed,
+        ColorRole::OnPrimaryFixedVariant,
+        ColorRole::SecondaryFixed,
+        ColorRole::SecondaryFixedDim,
+        ColorRole::OnSecondaryFixed,
+        ColorRole::OnSecondaryFixedVariant,
+        ColorRole::TertiaryFixed,
+        ColorRole::TertiaryFixedDim,
+        ColorRole::OnTertiaryFixed,
+        ColorRole::OnTertiaryFixedVariant,
     ];
     pub const COUNT: usize = Self::ALL.len();
 }
+
+pub const TONAL_ELEVATION_LOG_SCALE: f32 = 4.5;
+pub const TONAL_ELEVATION_BASE_PERCENT: f32 = 2.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum KeyRole {
@@ -140,6 +164,46 @@ impl KeyRole {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FixedRole {
+    Primary,
+    Secondary,
+    Tertiary,
+}
+
+impl FixedRole {
+    pub const fn colors(self) -> FixedRoleColors {
+        match self {
+            Self::Primary => FixedRoleColors {
+                fixed: ColorRole::PrimaryFixed,
+                fixed_dim: ColorRole::PrimaryFixedDim,
+                on_fixed: ColorRole::OnPrimaryFixed,
+                on_fixed_variant: ColorRole::OnPrimaryFixedVariant,
+            },
+            Self::Secondary => FixedRoleColors {
+                fixed: ColorRole::SecondaryFixed,
+                fixed_dim: ColorRole::SecondaryFixedDim,
+                on_fixed: ColorRole::OnSecondaryFixed,
+                on_fixed_variant: ColorRole::OnSecondaryFixedVariant,
+            },
+            Self::Tertiary => FixedRoleColors {
+                fixed: ColorRole::TertiaryFixed,
+                fixed_dim: ColorRole::TertiaryFixedDim,
+                on_fixed: ColorRole::OnTertiaryFixed,
+                on_fixed_variant: ColorRole::OnTertiaryFixedVariant,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FixedRoleColors {
+    pub fixed: ColorRole,
+    pub fixed_dim: ColorRole,
+    pub on_fixed: ColorRole,
+    pub on_fixed_variant: ColorRole,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SurfaceTier {
     Lowest,
     Low,
@@ -172,6 +236,11 @@ mod tests {
     }
 
     #[test]
+    fn scheme_has_all_forty_nine_roles() {
+        assert_eq!(ColorRole::COUNT, 49);
+    }
+
+    #[test]
     fn neutral_key_role_maps_to_surface_family() {
         let colors = KeyRole::Neutral.colors();
         assert_eq!(colors.color, ColorRole::Surface);
@@ -179,14 +248,17 @@ mod tests {
     }
 
     #[test]
+    fn fixed_roles_cover_primary_secondary_and_tertiary() {
+        assert_eq!(FixedRole::Secondary.colors().fixed_dim, ColorRole::SecondaryFixedDim);
+        assert_eq!(
+            FixedRole::Tertiary.colors().on_fixed_variant,
+            ColorRole::OnTertiaryFixedVariant
+        );
+    }
+
+    #[test]
     fn surface_tiers_cover_lowest_through_highest() {
-        assert_eq!(
-            SurfaceTier::Lowest.role(),
-            ColorRole::SurfaceContainerLowest
-        );
-        assert_eq!(
-            SurfaceTier::Highest.role(),
-            ColorRole::SurfaceContainerHighest
-        );
+        assert_eq!(SurfaceTier::Lowest.role(), ColorRole::SurfaceContainerLowest);
+        assert_eq!(SurfaceTier::Highest.role(), ColorRole::SurfaceContainerHighest);
     }
 }

@@ -1,6 +1,7 @@
 use gpui::{AnyElement, App, Context, ElementId, Entity, IntoElement, Render, Subscription, Window};
 
 use super::{Surface, SurfaceStyle};
+use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 
 pub struct InteractiveSurface {
@@ -18,7 +19,8 @@ impl InteractiveSurface {
         content: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
         cx: &mut Context<Self>,
     ) -> Self {
-        let controller = cx.new(|cx| InteractionController::new(true, cx));
+        let controller =
+            cx.new(|cx| InteractionController::new(RippleConfig::new(gpui::black(), true), cx));
         let observation = cx.observe(&controller, |_, _, cx| cx.notify());
         Self {
             id: id.into(),

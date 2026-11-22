@@ -67,5 +67,31 @@ fn argb_of(scheme: &MaterializedScheme, role: ColorRole) -> Argb {
         ColorRole::InverseOnSurface => scheme.inverse_on_surface,
         ColorRole::Shadow => scheme.shadow,
         ColorRole::Scrim => scheme.scrim,
+        ColorRole::PrimaryFixed => scheme.primary_fixed,
+        ColorRole::PrimaryFixedDim => scheme.primary_fixed_dim,
+        ColorRole::OnPrimaryFixed => scheme.on_primary_fixed,
+        ColorRole::OnPrimaryFixedVariant => scheme.on_primary_fixed_variant,
+        ColorRole::SecondaryFixed => scheme.secondary_fixed,
+        ColorRole::SecondaryFixedDim => scheme.secondary_fixed_dim,
+        ColorRole::OnSecondaryFixed => scheme.on_secondary_fixed,
+        ColorRole::OnSecondaryFixedVariant => scheme.on_secondary_fixed_variant,
+        ColorRole::TertiaryFixed => scheme.tertiary_fixed,
+        ColorRole::TertiaryFixedDim => scheme.tertiary_fixed_dim,
+        ColorRole::OnTertiaryFixed => scheme.on_tertiary_fixed,
+        ColorRole::OnTertiaryFixedVariant => scheme.on_tertiary_fixed_variant,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fixed_colors_are_mapped_from_the_scheme() {
+        let generated = material_color_utils::theme_from_color(Argb(0xFF4285F4)).call();
+        assert_eq!(
+            argb_of(&generated.schemes.light, ColorRole::PrimaryFixed).0,
+            generated.schemes.light.primary_fixed.0
+        );
     }
 }

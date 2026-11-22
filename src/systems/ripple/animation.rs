@@ -19,19 +19,35 @@ pub struct RippleFrame {
     pub alpha: f32,
 }
 
+pub fn end_radius(width: f32, height: f32, bounded: bool) -> f32 {
+    let covering = (width * width + height * height).sqrt() / 2.0;
+    if bounded {
+        covering + BOUNDED_RIPPLE_EXTRA_DP
+    } else {
+        covering
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RippleAnimation {
     origin: Option<(f32, f32)>,
     bounded: bool,
+    radius_override: Option<f32>,
     started_at: Instant,
     finished_at: Option<Instant>,
 }
 
 impl RippleAnimation {
-    pub fn new(origin: Option<(f32, f32)>, bounded: bool, started_at: Instant) -> Self {
+    pub fn new(
+        origin: Option<(f32, f32)>,
+        bounded: bool,
+        radius_override: Option<f32>,
+        started_at: Instant,
+    ) -> Self {
         Self {
             origin,
             bounded,
+            radius_override,
             started_at,
             finished_at: None,
         }
@@ -48,7 +64,8 @@ impl RippleAnimation {
     }
 
     pub fn is_finished(&self, now: Instant) -> bool {
-        self.fade_out_start().is_some_and(|start| now >= start + RIPPLE_FADE_OUT)
+        self.fade_out_start()
+            .is_some_and(|start| now >= start + RIPPLE_FADE_OUT)
     }
 
     pub fn sample(&self, now: Instant, element: ElementRect) -> Option<RippleFrame> {
@@ -58,7 +75,9 @@ impl RippleAnimation {
         let elapsed = now.saturating_duration_since(self.started_at);
         let (width, height) = element.size;
         let start_radius = width.max(height) * RIPPLE_START_FRACTION;
-        let end_radius = target_radius(width, height, self.bounded);
+        let target_radius = self
+            .radius_override
+            .unwrap_or_else(|| end_radius(width, height, self.bounded));
         let radius_progress = fast_out_slow_in()(progress(elapsed, RIPPLE_RADIUS_DURATION));
         let center_progress = progress(elapsed, RIPPLE_RADIUS_DURATION);
         let target = (width / 2.0, height / 2.0);
@@ -70,13 +89,14 @@ impl RippleAnimation {
                 lerp(start.0, target.0, center_progress),
                 lerp(start.1, target.1, center_progress),
             ),
-            radius: lerp(start_radius, end_radius, radius_progress),
+            radius: lerp(start_radius, target_radius, radius_progress),
             alpha: self.alpha(now, elapsed),
         })
     }
 
     fn fade_out_start(&self) -> Option<Instant> {
-        self.finished_at.map(|finished| finished.max(self.started_at + RIPPLE_FADE_IN))
+        self.finished_at
+            .map(|finished| finished.max(self.started_at + RIPPLE_FADE_IN))
     }
 
     fn alpha(&self, now: Instant, elapsed: Duration) -> f32 {
@@ -90,15 +110,6 @@ impl RippleAnimation {
 
 fn progress(elapsed: Duration, duration: Duration) -> f32 {
     (elapsed.as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0)
-}
-
-fn target_radius(width: f32, height: f32, bounded: bool) -> f32 {
-    let covering = (width * width + height * height).sqrt() / 2.0;
-    if bounded {
-        covering + BOUNDED_RIPPLE_EXTRA_DP
-    } else {
-        covering
-    }
 }
 
 fn lerp(start: f32, end: f32, t: f32) -> f32 {
@@ -129,7 +140,7 @@ mod tests {
     #[test]
     fn starts_transparent_at_start_radius() {
         let start = Instant::now();
-        let ripple = RippleAnimation::new(None, false, start);
+        let ripple = RippleAnimation::new(None, false, None, start);
         let frame = sample_at(&ripple, start);
         assert_close(frame.alpha, 0.0);
         assert_close(frame.radius, 100.0 * RIPPLE_START_FRACTION);
@@ -138,14 +149,14 @@ mod tests {
     #[test]
     fn reaches_full_alpha_after_fade_in() {
         let start = Instant::now();
-        let ripple = RippleAnimation::new(None, false, start);
+        let ripple = RippleAnimation::new(None, false, None, start);
         assert_close(sample_at(&ripple, start + RIPPLE_FADE_IN).alpha, 1.0);
     }
 
     #[test]
     fn radius_reaches_half_diagonal_after_radius_duration() {
         let start = Instant::now();
-        let ripple = RippleAnimation::new(None, false, start);
+        let ripple = RippleAnimation::new(None, false, None, start);
         let frame = sample_at(&ripple, start + RIPPLE_RADIUS_DURATION);
         assert_close(frame.radius, half_diagonal());
     }
@@ -153,15 +164,23 @@ mod tests {
     #[test]
     fn bounded_ripple_extends_radius_by_extra_dp() {
         let start = Instant::now();
-        let ripple = RippleAnimation::new(None, true, start);
+        let ripple = RippleAnimation::new(None, true, None, start);
         let frame = sample_at(&ripple, start + RIPPLE_RADIUS_DURATION);
         assert_close(frame.radius, half_diagonal() + BOUNDED_RIPPLE_EXTRA_DP);
     }
 
     #[test]
+    fn radius_override_replaces_the_computed_end_radius() {
+        let start = Instant::now();
+        let ripple = RippleAnimation::new(None, true, Some(24.0), start);
+        let frame = sample_at(&ripple, start + RIPPLE_RADIUS_DURATION);
+        assert_close(frame.radius, 24.0);
+    }
+
+    #[test]
     fn origin_moves_toward_center_over_time() {
         let start = Instant::now();
-        let ripple = RippleAnimation::new(Some((0.0, 0.0)), true, start);
+        let ripple = RippleAnimation::new(Some((0.0, 0.0)), true, None, start);
         let frame = sample_at(&ripple, start + RIPPLE_RADIUS_DURATION);
         assert_close(frame.center.0, 50.0);
         assert_close(frame.center.1, 25.0);
@@ -170,7 +189,7 @@ mod tests {
     #[test]
     fn release_holds_full_alpha_then_fades_out() {
         let start = Instant::now();
-        let mut ripple = RippleAnimation::new(None, false, start);
+        let mut ripple = RippleAnimation::new(None, false, None, start);
         ripple.finish(start);
         let out_start = start + RIPPLE_FADE_IN;
         let held = sample_at(&ripple, out_start - Duration::from_millis(1));
@@ -182,7 +201,7 @@ mod tests {
     #[test]
     fn finished_ripple_is_removed_after_fade_out() {
         let start = Instant::now();
-        let mut ripple = RippleAnimation::new(None, false, start);
+        let mut ripple = RippleAnimation::new(None, false, None, start);
         assert!(!ripple.is_finished(start + RIPPLE_FADE_OUT * 10));
         ripple.finish(start);
         let gone = start + RIPPLE_FADE_IN + RIPPLE_FADE_OUT;

@@ -1,9 +1,11 @@
+pub mod contrast;
 pub mod scheme;
 pub mod typography;
 
 use gpui::{App, BorrowAppContext, Global, Hsla};
 use material_color_utils::{theme_from_color, utils::color_utils::Argb};
 
+use crate::systems::interaction::config::FocusIndication;
 use crate::tokens::color::ColorRole;
 
 use scheme::ColorScheme;
@@ -21,6 +23,7 @@ pub struct MaterialTheme {
     light: ColorScheme,
     dark: ColorScheme,
     typography: Typography,
+    ripple_focus: FocusIndication,
 }
 
 impl Global for MaterialTheme {}
@@ -34,6 +37,7 @@ impl MaterialTheme {
             light: ColorScheme::from_materialized(&generated.schemes.light),
             dark: ColorScheme::from_materialized(&generated.schemes.dark),
             typography: Typography::default(),
+            ripple_focus: FocusIndication::default_opacity(),
         }
     }
 
@@ -62,6 +66,23 @@ impl MaterialTheme {
 
     pub fn typography(&self) -> &Typography {
         &self.typography
+    }
+
+    pub fn ripple_focus(&self) -> FocusIndication {
+        self.ripple_focus
+    }
+
+    pub fn set_ripple_focus(cx: &mut App, indication: FocusIndication) {
+        cx.update_global::<Self, _>(|theme, _| theme.ripple_focus = indication);
+        cx.refresh_windows();
+    }
+
+    pub fn toggle_mode(cx: &mut App) {
+        let next = match cx.global::<Self>().mode {
+            ThemeMode::Light => ThemeMode::Dark,
+            ThemeMode::Dark => ThemeMode::Light,
+        };
+        Self::set_mode(cx, next);
     }
 
     pub fn set_mode(cx: &mut App, mode: ThemeMode) {
