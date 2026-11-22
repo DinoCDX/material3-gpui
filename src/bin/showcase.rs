@@ -115,7 +115,7 @@ impl Showcase {
         for (screen_index, screen) in spec["screens"].as_array().into_iter().flatten().enumerate() {
             let mut items = Vec::new();
             for (index, item) in screen["items"].as_array().into_iter().flatten().enumerate() {
-                let id = format!("{screen_index}-{index}");
+                let id = ("showcase-item", (screen_index * 1000 + index) as u64);
                 let built = match text_field(item, "kind") {
                     "text" => Item::Text {
                         style: find_style(text_field(item, "style")),

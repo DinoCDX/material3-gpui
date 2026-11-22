@@ -188,11 +188,11 @@ impl Render for Gallery {
             ElevationLevel::Level4,
             ElevationLevel::Level5,
         ];
-        let elevations = levels.iter().fold(
+        let elevations = levels.iter().enumerate().fold(
             div().flex().flex_wrap().gap(px(24.0)),
-            |row, level| {
+            |row, (index, level)| {
                 row.child(
-                    Surface::new(format!("elevation-{level:?}"))
+                    Surface::new(("elevation", index as u64))
                         .style(SurfaceStyle {
                             shape: ShapeToken::CornerMedium,
                             tonal_elevation: *level,
