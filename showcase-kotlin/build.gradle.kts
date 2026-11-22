@@ -18,10 +18,6 @@ dependencies {
     implementation("com.materialkolor:material-kolor:5.0.0")
 }
 
-kotlin {
-    jvmToolchain(21)
-}
-
 application {
     mainClass.set("MainKt")
 }
