@@ -280,7 +280,7 @@ fn main() {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 ..Default::default()
             },
-            |_, cx| cx.new(|cx| Gallery::new(cx)),
+            |_, cx| cx.new(Gallery::new),
         )
         .unwrap();
         cx.activate(true);

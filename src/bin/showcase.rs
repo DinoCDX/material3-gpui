@@ -275,10 +275,10 @@ fn parse_seed(hex: &str) -> u32 {
 fn spawn_command_reader(toggle: Arc<AtomicBool>) {
     thread::spawn(move || {
         for line in stdin().lock().lines().map_while(Result::ok) {
-            if let Ok(command) = serde_json::from_str::<Value>(&line) {
-                if command["cmd"] == "toggle_theme" {
-                    toggle.store(true, Ordering::SeqCst);
-                }
+            if let Ok(command) = serde_json::from_str::<Value>(&line)
+                && command["cmd"] == "toggle_theme"
+            {
+                toggle.store(true, Ordering::SeqCst);
             }
         }
     });
