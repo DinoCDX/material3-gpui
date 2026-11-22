@@ -1,4 +1,5 @@
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
@@ -22,9 +23,22 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ElevatedAssistChip
+import androidx.compose.material3.ElevatedSuggestionChip
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TriStateCheckbox
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -115,6 +129,26 @@ fun swatchColor(name: String, scheme: ColorScheme): Color = when (name) {
     else -> scheme.onSurface
 }
 
+fun buttonLabelStyle(size: String, typography: Typography): TextStyle = when (size) {
+    "medium" -> typography.titleMedium
+    "large" -> typography.headlineSmall
+    "xlarge" -> typography.headlineLarge
+    else -> typography.labelLarge
+}
+
+fun buttonPadding(size: String): PaddingValues = when (size) {
+    "medium" -> PaddingValues(start = 24.dp, end = 24.dp)
+    "large" -> PaddingValues(start = 48.dp, end = 48.dp)
+    "xlarge" -> PaddingValues(start = 64.dp, end = 64.dp)
+    else -> PaddingValues(start = 16.dp, end = 16.dp)
+}
+
+fun iconGap(size: String) = when (size) {
+    "large" -> 12.dp
+    "xlarge" -> 16.dp
+    else -> 8.dp
+}
+
 fun buttonHeight(size: String) = when (size) {
     "xsmall" -> 32.dp
     "medium" -> 56.dp
@@ -142,29 +176,35 @@ fun ShowcaseItem(item: JsonObject, scheme: ColorScheme, typography: Typography) 
             )
         }
         "button" -> {
-            val modifier = Modifier.height(buttonHeight(field(item, "size")))
+            val size = field(item, "size")
+            val modifier = Modifier.height(buttonHeight(size))
             val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            val gap = iconGap(size)
+            val labelStyle = buttonLabelStyle(size, typography)
+            val padding = buttonPadding(size)
             val leading: @Composable () -> Unit = {
                 if (item["leading"]?.jsonPrimitive?.content == "true") {
                     Text("+")
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(gap))
                 }
             }
-            val label: @Composable () -> Unit = { Text(field(item, "label")) }
+            val label: @Composable () -> Unit = {
+                ProvideTextStyle(labelStyle) { Text(field(item, "label")) }
+            }
             when (field(item, "variant")) {
-                "tonal" -> FilledTonalButton(onClick = {}, modifier = modifier, enabled = enabled) {
+                "tonal" -> FilledTonalButton(onClick = {}, modifier = modifier, enabled = enabled, contentPadding = padding) {
                     leading(); label()
                 }
-                "elevated" -> ElevatedButton(onClick = {}, modifier = modifier, enabled = enabled) {
+                "elevated" -> ElevatedButton(onClick = {}, modifier = modifier, enabled = enabled, contentPadding = padding) {
                     leading(); label()
                 }
-                "outlined" -> OutlinedButton(onClick = {}, modifier = modifier, enabled = enabled) {
+                "outlined" -> OutlinedButton(onClick = {}, modifier = modifier, enabled = enabled, contentPadding = padding) {
                     leading(); label()
                 }
-                "text" -> TextButton(onClick = {}, modifier = modifier, enabled = enabled) {
+                "text" -> TextButton(onClick = {}, modifier = modifier, enabled = enabled, contentPadding = padding) {
                     leading(); label()
                 }
-                else -> Button(onClick = {}, modifier = modifier, enabled = enabled) {
+                else -> Button(onClick = {}, modifier = modifier, enabled = enabled, contentPadding = padding) {
                     leading(); label()
                 }
             }
@@ -196,6 +236,107 @@ fun ShowcaseItem(item: JsonObject, scheme: ColorScheme, typography: Typography) 
                 }
             }
         }
+        "checkbox" -> {
+            val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            var state by remember { mutableStateOf(field(item, "state")) }
+            TriStateCheckbox(
+                state = when (state) {
+                    "checked" -> ToggleableState.On
+                    "indeterminate" -> ToggleableState.Indeterminate
+                    else -> ToggleableState.Off
+                },
+                onClick = { state = if (state == "checked") "unchecked" else "checked" },
+                enabled = enabled,
+            )
+        }
+        "radio" -> {
+            val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            var selected by remember { mutableStateOf(item["selected"]?.jsonPrimitive?.content == "true") }
+            RadioButton(selected = selected, onClick = { selected = true }, enabled = enabled)
+        }
+        "switch" -> {
+            val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            val showIcon = item["icon"]?.jsonPrimitive?.content == "true"
+            var on by remember { mutableStateOf(item["selected"]?.jsonPrimitive?.content == "true") }
+            Switch(
+                checked = on,
+                onCheckedChange = { on = it },
+                enabled = enabled,
+                thumbContent = if (showIcon) ({ Text(if (on) "✓" else "×") }) else null,
+            )
+        }
+        "slider" -> {
+            val min = item["min"]?.jsonPrimitive?.content?.toFloat() ?: 0f
+            val max = item["max"]?.jsonPrimitive?.content?.toFloat() ?: 100f
+            val steps = item["steps"]?.jsonPrimitive?.content?.toInt() ?: 0
+            val width = item["width"]?.jsonPrimitive?.content?.toFloat() ?: 240f
+            val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            var value by remember {
+                mutableStateOf(item["value"]?.jsonPrimitive?.content?.toFloat() ?: min)
+            }
+            Slider(
+                value = value,
+                onValueChange = { value = it },
+                valueRange = min..max,
+                steps = steps,
+                enabled = enabled,
+                modifier = Modifier.width(width.dp),
+            )
+        }
+        "range_slider" -> {
+            val min = item["min"]?.jsonPrimitive?.content?.toFloat() ?: 0f
+            val max = item["max"]?.jsonPrimitive?.content?.toFloat() ?: 100f
+            val steps = item["steps"]?.jsonPrimitive?.content?.toInt() ?: 0
+            val width = item["width"]?.jsonPrimitive?.content?.toFloat() ?: 240f
+            val enabled = item["enabled"]?.jsonPrimitive?.content != "false"
+            var range by remember {
+                mutableStateOf(
+                    (item["low"]?.jsonPrimitive?.content?.toFloat() ?: min)..
+                        (item["high"]?.jsonPrimitive?.content?.toFloat() ?: max)
+                )
+            }
+            RangeSlider(
+                value = range,
+                onValueChange = { range = it },
+                valueRange = min..max,
+                steps = steps,
+                enabled = enabled,
+                modifier = Modifier.width(width.dp),
+            )
+        }
+        "chip" -> {
+            val label = field(item, "label")
+            val leading = item["leading"]?.jsonPrimitive?.content
+            val trailing = item["trailing"]?.jsonPrimitive?.content
+            val elevated = item["elevated"]?.jsonPrimitive?.content == "true"
+            val selected0 = item["selected"]?.jsonPrimitive?.content == "true"
+            var selected by remember { mutableStateOf(selected0) }
+            val leadingIcon: (@Composable () -> Unit)? = leading?.let { glyph -> { Text(glyph) } }
+            when (field(item, "variant")) {
+                "filter" -> FilterChip(
+                    selected = selected,
+                    onClick = { selected = !selected },
+                    label = { Text(label) },
+                    leadingIcon = leadingIcon,
+                )
+                "input" -> InputChip(
+                    selected = selected,
+                    onClick = { selected = !selected },
+                    label = { Text(label) },
+                    trailingIcon = trailing?.let { glyph -> { Text(glyph) } },
+                )
+                "suggestion" -> if (elevated) {
+                    ElevatedSuggestionChip(onClick = {}, label = { Text(label) }, icon = leadingIcon)
+                } else {
+                    SuggestionChip(onClick = {}, label = { Text(label) }, icon = leadingIcon)
+                }
+                else -> if (elevated) {
+                    ElevatedAssistChip(onClick = {}, label = { Text(label) }, leadingIcon = leadingIcon)
+                } else {
+                    AssistChip(onClick = {}, label = { Text(label) }, leadingIcon = leadingIcon)
+                }
+            }
+        }
         "divider" -> HorizontalDivider(modifier = Modifier.width(160.dp))
         "badge" -> when (val content = field(item, "content")) {
             "dot" -> Badge()
@@ -209,9 +350,7 @@ fun ShowcaseItem(item: JsonObject, scheme: ColorScheme, typography: Typography) 
 fun FrameReporter(startupMs: Double) {
     LaunchedEffect(Unit) {
         var last = -1L
-        var sum = 0.0
-        var max = 0.0
-        var count = 0
+        val frameTimes = mutableListOf<Double>()
         var reportedStartup = false
         while (true) {
             withFrameNanos { now ->
@@ -220,20 +359,20 @@ fun FrameReporter(startupMs: Double) {
                     report(buildJsonObject { put("event", "ready"); put("startup_ms", startupMs) })
                 }
                 if (last >= 0) {
-                    val ms = (now - last) / 1_000_000.0
-                    sum += ms
-                    if (ms > max) max = ms
-                    count++
-                    if (count >= FRAMES_PER_REPORT) {
+                    frameTimes.add((now - last) / 1_000_000.0)
+                    if (frameTimes.size >= FRAMES_PER_REPORT) {
+                        val sorted = frameTimes.sorted()
+                        val count = sorted.size
+                        val p95 = sorted[((count - 1) * 0.95).toInt()]
                         report(buildJsonObject {
                             put("event", "frames")
                             put("count", count)
-                            put("avg_ms", sum / count)
-                            put("max_ms", max)
+                            put("avg_ms", sorted.average())
+                            put("min_ms", sorted.first())
+                            put("p95_ms", p95)
+                            put("max_ms", sorted.last())
                         })
-                        sum = 0.0
-                        max = 0.0
-                        count = 0
+                        frameTimes.clear()
                     }
                 }
                 last = now

@@ -6,11 +6,12 @@ use std::rc::Rc;
 use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, DefiniteLength, ElementId, Entity, IntoElement, Render,
+    AnyElement, App, Context, ElementId, Entity, IntoElement, Render,
     SharedString, Subscription, Window, div, px,
 };
 
 use super::{ElementBuilder, sync_enabled};
+use crate::systems::theme::typography::tracked_text;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
@@ -143,15 +144,7 @@ impl Render for Button {
         };
         let leading = self.leading_icon.as_ref().map(|icon| icon_slot(icon(window, cx)));
         let trailing = self.trailing_icon.as_ref().map(|icon| icon_slot(icon(window, cx)));
-        let label = div()
-            .font_family(label_family)
-            .font_weight(size.label_style.weight())
-            .text_size(px(size.label_style.size_sp()))
-            .line_height(DefiniteLength::Absolute(gpui::AbsoluteLength::Pixels(px(
-                size.label_style.line_height(),
-            ))))
-            .text_color(label_color)
-            .child(self.label.clone());
+        let label = tracked_text(self.label.as_ref(), size.label_style, label_color, label_family);
 
         let row = div()
             .flex()

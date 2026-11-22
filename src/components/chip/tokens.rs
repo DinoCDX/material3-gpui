@@ -1,0 +1,9 @@
+pub const CONTAINER_HEIGHT: f32 = 32.0;
+pub const ICON_SIZE: f32 = 18.0;
+pub const ICON_LABEL_SPACE: f32 = 8.0;
+pub const PADDING_WITH_ICON: f32 = 8.0;
+pub const PADDING_WITHOUT_ICON: f32 = 8.0;
+pub const DISABLED_LABEL_OPACITY: f32 = 0.38;
+pub const DISABLED_ICON_OPACITY: f32 = 0.38;
+pub const DISABLED_CONTAINER_OPACITY: f32 = 0.12;
+pub const DISABLED_OUTLINE_OPACITY: f32 = 0.12;

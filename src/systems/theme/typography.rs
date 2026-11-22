@@ -1,4 +1,7 @@
-use gpui::{AbsoluteLength, DefiniteLength, Hsla, Pixels, SharedString, TextRun, TextStyle, px};
+use gpui::{
+    AbsoluteLength, DefiniteLength, Hsla, IntoElement, Pixels, SharedString, TextRun, TextStyle,
+    div, prelude::*, px,
+};
 
 use crate::tokens::typography::{FontRole, SANS_SERIF_FONT_FAMILY, TypeStyle};
 
@@ -43,6 +46,35 @@ impl Typography {
     }
 }
 
+pub fn tracking_glyphs(text: &str) -> Vec<char> {
+    text.chars()
+        .map(|character| if character == ' ' { '\u{00A0}' } else { character })
+        .collect()
+}
+
+pub fn tracked_text(
+    text: &str,
+    style: TypeStyle,
+    color: Hsla,
+    family: SharedString,
+) -> impl IntoElement {
+    let tracking = style.tracking();
+    let mut row = div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .font_family(family)
+        .font_weight(style.weight())
+        .text_size(px(style.size_sp()))
+        .line_height(DefiniteLength::Absolute(AbsoluteLength::Pixels(px(style.line_height()))))
+        .text_color(color);
+    for glyph in tracking_glyphs(text) {
+        let cell = div().child(glyph.to_string());
+        row = row.child(if tracking > 0.0 { cell.pr(px(tracking)) } else { cell });
+    }
+    row
+}
+
 impl Default for Typography {
     fn default() -> Self {
         Self::new(SANS_SERIF_FONT_FAMILY, SANS_SERIF_FONT_FAMILY)
@@ -53,6 +85,12 @@ impl Default for Typography {
 mod tests {
     use super::*;
     use gpui::FontWeight;
+
+    #[test]
+    fn tracked_glyphs_keep_spaces_as_non_breaking() {
+        let glyphs = tracking_glyphs("A B");
+        assert_eq!(glyphs, vec!['A', '\u{00A0}', 'B']);
+    }
 
     #[test]
     fn text_style_uses_mapped_family_and_metrics() {

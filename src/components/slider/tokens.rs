@@ -1,0 +1,13 @@
+pub const HANDLE_HEIGHT: f32 = 44.0;
+pub const HANDLE_WIDTH: f32 = 4.0;
+pub const FOCUS_HANDLE_WIDTH: f32 = 2.0;
+pub const TRACK_HEIGHT: f32 = 16.0;
+pub const STOP_SIZE: f32 = 4.0;
+pub const LABEL_AREA_HEIGHT: f32 = 48.0;
+pub const VALUE_INDICATOR_BOTTOM_SPACE: f32 = 12.0;
+pub const LABEL_WIDTH: f32 = 48.0;
+pub const LABEL_HEIGHT: f32 = 32.0;
+pub const DISABLED_ACTIVE_OPACITY: f32 = 0.38;
+pub const DISABLED_INACTIVE_OPACITY: f32 = 0.12;
+pub const DISABLED_HANDLE_OPACITY: f32 = 0.38;
+pub const DISABLED_STOP_OPACITY: f32 = 0.38;

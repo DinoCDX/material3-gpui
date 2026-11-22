@@ -77,6 +77,11 @@ impl MaterialTheme {
         cx.refresh_windows();
     }
 
+    pub fn set_typography(cx: &mut App, typography: Typography) {
+        cx.update_global::<Self, _>(|theme, _| theme.typography = typography);
+        cx.refresh_windows();
+    }
+
     pub fn toggle_mode(cx: &mut App) {
         let next = match cx.global::<Self>().mode {
             ThemeMode::Light => ThemeMode::Dark,

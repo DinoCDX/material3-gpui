@@ -1,23 +1,37 @@
+use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    App, Application, Bounds, Context, Entity, IntoElement, Render, Window, WindowBounds,
-    WindowOptions, div, px, size,
+    AnyElement, App, Application, Bounds, BorderStyle, Context, Corners, Edges, Entity, Hsla,
+    IntoElement, Render, Window, WindowBounds, WindowOptions, canvas, div, point, px, quad, size,
 };
+use gpui::AppContext;
 use material_color_utils::utils::color_utils::Argb;
 use material3_gpui::prelude::*;
 use serde_json::{Value, json};
 
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(500);
+const HISTORY_LEN: usize = 120;
+const CHART_WIDTH: f32 = 300.0;
+const CHART_HEIGHT: f32 = 90.0;
+const FRAME_BUDGET_MS: f32 = 16.67;
+const FRAME_CHART_FLOOR_MS: f32 = 40.0;
+const CPU_CHART_FLOOR: f32 = 100.0;
 const SPEC_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../spec/showcase.json");
 const KOTLIN_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../showcase-kotlin");
+
+#[derive(Default, Clone, Copy)]
+struct Sample {
+    rss_mb: f32,
+    cpu: f32,
+    frame_avg_ms: f32,
+}
 
 #[derive(Default, Clone)]
 struct ChildStats {
@@ -27,22 +41,36 @@ struct ChildStats {
     cpu_percent: f32,
     startup_ms: f64,
     frame_avg_ms: f64,
+    frame_min_ms: f64,
+    frame_p95_ms: f64,
     frame_max_ms: f64,
     frames_seen: u64,
+    last_sample: Option<(f64, Instant)>,
+    history: VecDeque<Sample>,
+    peak_rss_mb: f32,
 }
 
 #[derive(Default)]
 struct Shared {
     stats: Vec<ChildStats>,
     stdins: Vec<(String, ChildStdin)>,
-    processes: Vec<Child>,
 }
 
 type SharedState = Arc<Mutex<Shared>>;
 
+fn executable_name(name: &str) -> String {
+    if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    }
+}
+
 fn sibling_binary(name: &str) -> PathBuf {
     let exe = std::env::current_exe().expect("launcher path");
-    exe.parent().expect("target dir").join(name)
+    exe.parent()
+        .expect("target dir")
+        .join(executable_name(name))
 }
 
 fn rust_command() -> Command {
@@ -51,12 +79,27 @@ fn rust_command() -> Command {
     command
 }
 
+fn java_executable() -> PathBuf {
+    let java = executable_name("java");
+    std::env::var("JAVA_HOME")
+        .map(|home| PathBuf::from(home).join("bin").join(&java))
+        .unwrap_or_else(|_| PathBuf::from(java))
+}
+
 fn kotlin_command() -> Command {
-    let script = PathBuf::from(KOTLIN_DIR)
-        .join("build/install/showcase-kotlin/bin/showcase-kotlin");
-    let mut command = Command::new(script);
-    command.env("SHOWCASE_SPEC", SPEC_PATH);
+    let lib_dir = PathBuf::from(KOTLIN_DIR).join("build/install/showcase-kotlin/lib");
+    let classpath = format!("{}{}*", lib_dir.display(), std::path::MAIN_SEPARATOR);
+    let mut command = Command::new(java_executable());
     command
+        .arg("-cp")
+        .arg(classpath)
+        .arg("MainKt")
+        .env("SHOWCASE_SPEC", SPEC_PATH);
+    command
+}
+
+fn number(event: &Value, key: &str) -> f64 {
+    event[key].as_f64().unwrap_or(0.0)
 }
 
 fn apply_event(state: &SharedState, name: &str, event: &Value) {
@@ -65,11 +108,13 @@ fn apply_event(state: &SharedState, name: &str, event: &Value) {
         return;
     };
     match event["event"].as_str() {
-        Some("ready") => stats.startup_ms = event["startup_ms"].as_f64().unwrap_or(0.0),
+        Some("ready") => stats.startup_ms = number(event, "startup_ms"),
         Some("frames") => {
-            stats.frame_avg_ms = event["avg_ms"].as_f64().unwrap_or(0.0);
-            stats.frame_max_ms = event["max_ms"].as_f64().unwrap_or(0.0);
-            stats.frames_seen += event["count"].as_u64().unwrap_or(0);
+            stats.frame_avg_ms = number(event, "avg_ms");
+            stats.frame_min_ms = number(event, "min_ms");
+            stats.frame_p95_ms = number(event, "p95_ms");
+            stats.frame_max_ms = number(event, "max_ms");
+            stats.frames_seen += number(event, "count") as u64;
         }
         _ => {}
     }
@@ -97,7 +142,6 @@ fn spawn_child(state: &SharedState, name: &str, mut command: Command) {
             ..Default::default()
         });
         shared.stdins.push((name.to_string(), stdin));
-        shared.processes.push(child);
     }
     let reader_state = Arc::clone(state);
     let reader_name = name.to_string();
@@ -110,20 +154,71 @@ fn spawn_child(state: &SharedState, name: &str, mut command: Command) {
     });
 }
 
+#[cfg(unix)]
+fn read_process(pid: u32, _stats: &mut ChildStats) -> Option<(u64, f32)> {
+    let output = Command::new("ps")
+        .args(["-o", "rss=,%cpu=", "-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut fields = text.split_whitespace();
+    let rss = fields.next()?.parse().ok()?;
+    let cpu = fields.next()?.parse().ok()?;
+    Some((rss, cpu))
+}
+
+#[cfg(windows)]
+fn read_process(pid: u32, stats: &mut ChildStats) -> Option<(u64, f32)> {
+    let script = format!(
+        "$p = Get-Process -Id {pid} -ErrorAction Stop; $c = [System.Globalization.CultureInfo]::InvariantCulture; \
+         [string]::Format($c, '{{0}} {{1}}', [long]($p.WorkingSet64 / 1KB), $p.TotalProcessorTime.TotalSeconds)"
+    );
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut fields = text.split_whitespace();
+    let rss: u64 = fields.next()?.parse().ok()?;
+    let cpu_seconds: f64 = fields.next()?.parse().ok()?;
+    let now = Instant::now();
+    let cores = std::thread::available_parallelism().map_or(1.0, |n| n.get() as f64);
+    let percent = match stats.last_sample {
+        Some((last_seconds, last_time)) => {
+            let wall = (now - last_time).as_secs_f64();
+            if wall > 0.0 {
+                ((cpu_seconds - last_seconds) / wall / cores * 100.0) as f32
+            } else {
+                stats.cpu_percent
+            }
+        }
+        None => 0.0,
+    };
+    stats.last_sample = Some((cpu_seconds, now));
+    Some((rss, percent))
+}
+
 fn sample_processes(state: SharedState) {
     thread::spawn(move || {
         loop {
             thread::sleep(SAMPLE_INTERVAL);
             let mut shared = state.lock().expect("state lock");
             for stats in shared.stats.iter_mut() {
-                let output = Command::new("ps")
-                    .args(["-o", "rss=,%cpu=", "-p", &stats.pid.to_string()])
-                    .output();
-                if let Ok(output) = output {
-                    let text = String::from_utf8_lossy(&output.stdout);
-                    let mut fields = text.split_whitespace();
-                    stats.rss_kb = fields.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-                    stats.cpu_percent = fields.next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+                let pid = stats.pid;
+                let Some((rss, cpu)) = read_process(pid, stats) else {
+                    continue;
+                };
+                stats.rss_kb = rss;
+                stats.cpu_percent = cpu;
+                let sample = Sample {
+                    rss_mb: rss as f32 / 1024.0,
+                    cpu,
+                    frame_avg_ms: stats.frame_avg_ms as f32,
+                };
+                stats.peak_rss_mb = stats.peak_rss_mb.max(sample.rss_mb);
+                stats.history.push_back(sample);
+                if stats.history.len() > HISTORY_LEN {
+                    stats.history.pop_front();
                 }
             }
         }
@@ -136,6 +231,184 @@ fn send_command(state: &SharedState, command: Value) {
         let _ = writeln!(stdin, "{command}");
         let _ = stdin.flush();
     }
+}
+
+#[derive(Clone, Copy)]
+struct ChartStyle {
+    accent: Hsla,
+    surface: Hsla,
+    text: Hsla,
+}
+
+fn chart(
+    values: Vec<f32>,
+    max: f32,
+    color: Hsla,
+    background: Hsla,
+    reference: Option<f32>,
+) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let origin_x = f32::from(&bounds.origin.x);
+            let origin_y = f32::from(&bounds.origin.y);
+            let width = f32::from(&bounds.size.width);
+            let height = f32::from(&bounds.size.height);
+            window.paint_quad(quad(
+                bounds,
+                Corners::all(px(0.0)),
+                background,
+                Edges::all(px(0.0)),
+                background,
+                BorderStyle::default(),
+            ));
+            if max <= 0.0 {
+                return;
+            }
+            let slot = width / HISTORY_LEN as f32;
+            let bar_width = (slot - 1.0).max(1.0);
+            for (index, value) in values.iter().enumerate() {
+                let fraction = (value / max).clamp(0.0, 1.0);
+                let bar_height = fraction * height;
+                let x = origin_x + width - (values.len() - index) as f32 * slot;
+                let bar = Bounds::new(
+                    point(px(x), px(origin_y + height - bar_height)),
+                    size(px(bar_width), px(bar_height)),
+                );
+                window.paint_quad(quad(
+                    bar,
+                    Corners::all(px(0.0)),
+                    color,
+                    Edges::all(px(0.0)),
+                    color,
+                    BorderStyle::default(),
+                ));
+            }
+            if let Some(reference) = reference {
+                let fraction = (reference / max).clamp(0.0, 1.0);
+                let line_y = origin_y + height - fraction * height;
+                let line = Bounds::new(
+                    point(px(origin_x), px(line_y)),
+                    size(px(width), px(1.0)),
+                );
+                window.paint_quad(quad(
+                    line,
+                    Corners::all(px(0.0)),
+                    color,
+                    Edges::all(px(0.0)),
+                    color,
+                    BorderStyle::default(),
+                ));
+            }
+        },
+    )
+    .w(px(CHART_WIDTH))
+    .h(px(CHART_HEIGHT))
+}
+
+fn labelled_chart(
+    label: &str,
+    current: String,
+    values: Vec<f32>,
+    max: f32,
+    style: ChartStyle,
+    reference: Option<f32>,
+) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(4.0))
+        .child(
+            div()
+                .flex()
+                .justify_between()
+                .text_size(px(12.0))
+                .text_color(style.text)
+                .child(label.to_string())
+                .child(current),
+        )
+        .child(chart(values, max, style.accent, style.surface, reference))
+}
+
+fn average(values: impl Iterator<Item = f32>, count: usize) -> f32 {
+    if count == 0 {
+        return 0.0;
+    }
+    values.sum::<f32>() / count as f32
+}
+
+fn child_panel(stats: &ChildStats, style: ChartStyle) -> impl IntoElement {
+    let history: Vec<Sample> = stats.history.iter().copied().collect();
+    let count = history.len();
+    let rss_now = stats.rss_kb as f32 / 1024.0;
+    let rss_avg = average(history.iter().map(|s| s.rss_mb), count);
+    let cpu_avg = average(history.iter().map(|s| s.cpu), count);
+    let rss_values: Vec<f32> = history.iter().map(|s| s.rss_mb).collect();
+    let cpu_values: Vec<f32> = history.iter().map(|s| s.cpu).collect();
+    let frame_values: Vec<f32> = history.iter().map(|s| s.frame_avg_ms).collect();
+    let rss_max = stats.peak_rss_mb.max(1.0) * 1.1;
+    let cpu_max = cpu_values.iter().copied().fold(CPU_CHART_FLOOR, f32::max);
+    let frame_max = frame_values.iter().copied().fold(FRAME_CHART_FLOOR_MS, f32::max);
+
+    let heading = format!(
+        "{} · pid {} · startup {:.0} ms · {} frames",
+        stats.name, stats.pid, stats.startup_ms, stats.frames_seen
+    );
+    let frame_line = format!(
+        "frame ms  avg {:.2}  min {:.2}  p95 {:.2}  max {:.2}",
+        stats.frame_avg_ms, stats.frame_min_ms, stats.frame_p95_ms, stats.frame_max_ms
+    );
+    let memory_line = format!(
+        "memory MB  now {:.1}  avg {:.1}  peak {:.1}",
+        rss_now, rss_avg, stats.peak_rss_mb
+    );
+    let cpu_line = format!(
+        "cpu %  now {:.1}  avg {:.1}  samples {}",
+        stats.cpu_percent, cpu_avg, count
+    );
+
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(10.0))
+        .p(px(14.0))
+        .rounded(px(12.0))
+        .bg(style.surface)
+        .text_color(style.text)
+        .child(div().text_size(px(15.0)).child(heading))
+        .child(div().text_size(px(12.0)).child(frame_line))
+        .child(div().text_size(px(12.0)).child(memory_line))
+        .child(div().text_size(px(12.0)).child(cpu_line))
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .gap(px(16.0))
+                .child(labelled_chart(
+                    "Memory (MB)",
+                    format!("{rss_now:.1}"),
+                    rss_values,
+                    rss_max,
+                    style,
+                    None,
+                ))
+                .child(labelled_chart(
+                    "CPU (%)",
+                    format!("{:.1}", stats.cpu_percent),
+                    cpu_values,
+                    cpu_max,
+                    style,
+                    None,
+                ))
+                .child(labelled_chart(
+                    "Frame time (ms, line = 60 fps budget)",
+                    format!("{:.2}", stats.frame_avg_ms),
+                    frame_values,
+                    frame_max,
+                    style,
+                    Some(FRAME_BUDGET_MS),
+                )),
+        )
 }
 
 struct Launcher {
@@ -177,46 +450,47 @@ impl Launcher {
     }
 }
 
-fn stat_line(stats: &ChildStats) -> String {
-    format!(
-        "{:<7} pid {:>6}  RSS {:>8.1} MB  CPU {:>5.1}%  startup {:>7.0} ms  frame avg {:>5.2} ms  max {:>6.2} ms  frames {}",
-        stats.name,
-        stats.pid,
-        stats.rss_kb as f64 / 1024.0,
-        stats.cpu_percent,
-        stats.startup_ms,
-        stats.frame_avg_ms,
-        stats.frame_max_ms,
-        stats.frames_seen,
-    )
-}
-
 impl Render for Launcher {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         window.request_animation_frame();
         let theme = cx.theme();
-        let lines: Vec<String> = {
-            let shared = self.state.lock().expect("state lock");
-            if shared.stats.is_empty() {
-                vec!["No showcase running. Open one to see live stats.".to_string()]
-            } else {
-                shared.stats.iter().map(stat_line).collect()
-            }
+        let surface = theme.color(ColorRole::SurfaceContainer);
+        let text = theme.color(ColorRole::OnSurface);
+        let rust_style = ChartStyle {
+            accent: theme.color(ColorRole::Primary),
+            surface,
+            text,
         };
-        let mut stats_column = div().flex().flex_col().gap(px(6.0));
-        for line in lines {
-            stats_column = stats_column.child(
+        let kotlin_style = ChartStyle {
+            accent: theme.color(ColorRole::Tertiary),
+            surface,
+            text,
+        };
+
+        let snapshot: Vec<ChildStats> = {
+            let shared = self.state.lock().expect("state lock");
+            shared.stats.clone()
+        };
+
+        let mut body = div().flex().flex_col().gap(px(16.0));
+        if snapshot.is_empty() {
+            body = body.child(
                 div()
-                    .text_size(px(13.0))
-                    .text_color(theme.color(ColorRole::OnSurface))
-                    .child(line),
+                    .text_size(px(14.0))
+                    .text_color(text)
+                    .child("No showcase running. Open one to see live stats."),
             );
         }
-        div()
+        for stats in &snapshot {
+            let style = if stats.name == "kotlin" { kotlin_style } else { rust_style };
+            body = body.child(child_panel(stats, style));
+        }
+
+        let content = div()
             .size_full()
             .flex()
             .flex_col()
-            .gap(px(24.0))
+            .gap(px(20.0))
             .p(px(24.0))
             .bg(theme.color(ColorRole::Background))
             .child(
@@ -227,7 +501,12 @@ impl Render for Launcher {
                     .child(self.kotlin_button.clone())
                     .child(self.theme_button.clone()),
             )
-            .child(stats_column)
+            .child(body);
+        div()
+            .id("launcher-scroll")
+            .size_full()
+            .overflow_y_scroll()
+            .child(content)
     }
 }
 
@@ -236,7 +515,7 @@ fn main() {
     sample_processes(Arc::clone(&state));
     Application::new().run(move |cx: &mut App| {
         MaterialTheme::install(cx, Argb(0xFF4285F4), ThemeMode::Light);
-        let bounds = Bounds::centered(None, size(px(1100.0), px(520.0)), cx);
+        let bounds = Bounds::centered(None, size(px(1280.0), px(1000.0)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),

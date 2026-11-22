@@ -6,71 +6,318 @@
       "id": "typography",
       "title": "Typography",
       "items": [
-        {"kind": "text", "style": "DisplayLarge", "text": "Display Large"},
-        {"kind": "text", "style": "HeadlineMedium", "text": "Headline Medium"},
-        {"kind": "text", "style": "TitleLarge", "text": "Title Large"},
-        {"kind": "text", "style": "BodyLarge", "text": "Body Large"},
-        {"kind": "text", "style": "LabelMedium", "text": "Label Medium"},
-        {"kind": "text", "style": "LabelLargeEmphasized", "text": "Label Large Emphasized"}
+        {
+          "kind": "text",
+          "style": "DisplayLarge",
+          "text": "Display Large"
+        },
+        {
+          "kind": "text",
+          "style": "HeadlineMedium",
+          "text": "Headline Medium"
+        },
+        {
+          "kind": "text",
+          "style": "TitleLarge",
+          "text": "Title Large"
+        },
+        {
+          "kind": "text",
+          "style": "BodyLarge",
+          "text": "Body Large"
+        },
+        {
+          "kind": "text",
+          "style": "LabelMedium",
+          "text": "Label Medium"
+        },
+        {
+          "kind": "text",
+          "style": "LabelLargeEmphasized",
+          "text": "Label Large Emphasized"
+        }
       ]
     },
     {
       "id": "colors",
       "title": "Colours",
       "items": [
-        {"kind": "swatch", "role": "primary", "name": "primary"},
-        {"kind": "swatch", "role": "onPrimary", "name": "onPrimary"},
-        {"kind": "swatch", "role": "primaryContainer", "name": "primaryContainer"},
-        {"kind": "swatch", "role": "secondary", "name": "secondary"},
-        {"kind": "swatch", "role": "tertiary", "name": "tertiary"},
-        {"kind": "swatch", "role": "error", "name": "error"},
-        {"kind": "swatch", "role": "surface", "name": "surface"},
-        {"kind": "swatch", "role": "surfaceVariant", "name": "surfaceVariant"},
-        {"kind": "swatch", "role": "outline", "name": "outline"}
+        {
+          "kind": "swatch",
+          "role": "primary",
+          "name": "primary"
+        },
+        {
+          "kind": "swatch",
+          "role": "onPrimary",
+          "name": "onPrimary"
+        },
+        {
+          "kind": "swatch",
+          "role": "primaryContainer",
+          "name": "primaryContainer"
+        },
+        {
+          "kind": "swatch",
+          "role": "secondary",
+          "name": "secondary"
+        },
+        {
+          "kind": "swatch",
+          "role": "tertiary",
+          "name": "tertiary"
+        },
+        {
+          "kind": "swatch",
+          "role": "error",
+          "name": "error"
+        },
+        {
+          "kind": "swatch",
+          "role": "surface",
+          "name": "surface"
+        },
+        {
+          "kind": "swatch",
+          "role": "surfaceVariant",
+          "name": "surfaceVariant"
+        },
+        {
+          "kind": "swatch",
+          "role": "outline",
+          "name": "outline"
+        }
       ]
     },
     {
       "id": "buttons",
       "title": "Buttons",
       "items": [
-        {"kind": "button", "variant": "filled", "size": "small", "label": "Filled", "leading": true},
-        {"kind": "button", "variant": "tonal", "size": "small", "label": "Tonal"},
-        {"kind": "button", "variant": "elevated", "size": "small", "label": "Elevated"},
-        {"kind": "button", "variant": "outlined", "size": "small", "label": "Outlined"},
-        {"kind": "button", "variant": "text", "size": "small", "label": "Text"},
-        {"kind": "button", "variant": "filled", "size": "medium", "label": "Medium"},
-        {"kind": "button", "variant": "filled", "size": "large", "label": "Large"},
-        {"kind": "button", "variant": "filled", "size": "small", "label": "Disabled", "enabled": false}
+        {
+          "kind": "button",
+          "variant": "filled",
+          "size": "small",
+          "label": "Filled",
+          "leading": true
+        },
+        {
+          "kind": "button",
+          "variant": "tonal",
+          "size": "small",
+          "label": "Tonal"
+        },
+        {
+          "kind": "button",
+          "variant": "elevated",
+          "size": "small",
+          "label": "Elevated"
+        },
+        {
+          "kind": "button",
+          "variant": "outlined",
+          "size": "small",
+          "label": "Outlined"
+        },
+        {
+          "kind": "button",
+          "variant": "text",
+          "size": "small",
+          "label": "Text"
+        },
+        {
+          "kind": "button",
+          "variant": "filled",
+          "size": "medium",
+          "label": "Medium"
+        },
+        {
+          "kind": "button",
+          "variant": "filled",
+          "size": "large",
+          "label": "Large"
+        },
+        {
+          "kind": "button",
+          "variant": "filled",
+          "size": "small",
+          "label": "Disabled",
+          "enabled": false
+        }
       ]
     },
     {
       "id": "icon-buttons",
       "title": "Icon buttons",
       "items": [
-        {"kind": "icon_button", "variant": "standard", "size": "small"},
-        {"kind": "icon_button", "variant": "filled", "size": "small"},
-        {"kind": "icon_button", "variant": "tonal", "size": "small"},
-        {"kind": "icon_button", "variant": "outlined", "size": "small"}
+        {
+          "kind": "icon_button",
+          "variant": "standard",
+          "size": "small"
+        },
+        {
+          "kind": "icon_button",
+          "variant": "filled",
+          "size": "small"
+        },
+        {
+          "kind": "icon_button",
+          "variant": "tonal",
+          "size": "small"
+        },
+        {
+          "kind": "icon_button",
+          "variant": "outlined",
+          "size": "small"
+        }
       ]
     },
     {
       "id": "fabs",
       "title": "FABs",
       "items": [
-        {"kind": "fab", "size": "small"},
-        {"kind": "fab", "size": "standard"},
-        {"kind": "fab", "size": "large"},
-        {"kind": "fab", "size": "standard", "extended": "Compose", "color": "secondary"}
+        {
+          "kind": "fab",
+          "size": "small"
+        },
+        {
+          "kind": "fab",
+          "size": "standard"
+        },
+        {
+          "kind": "fab",
+          "size": "large"
+        },
+        {
+          "kind": "fab",
+          "size": "standard",
+          "extended": "Compose",
+          "color": "secondary"
+        }
+      ]
+    },
+    {
+      "id": "controls",
+      "title": "Selection controls",
+      "items": [
+        {
+          "kind": "checkbox",
+          "state": "unchecked"
+        },
+        {
+          "kind": "checkbox",
+          "state": "checked"
+        },
+        {
+          "kind": "checkbox",
+          "state": "indeterminate"
+        },
+        {
+          "kind": "checkbox",
+          "state": "checked",
+          "enabled": false
+        },
+        {
+          "kind": "radio",
+          "selected": true
+        },
+        {
+          "kind": "radio",
+          "selected": false
+        },
+        {
+          "kind": "radio",
+          "selected": true,
+          "enabled": false
+        },
+        {
+          "kind": "switch",
+          "selected": true,
+          "icon": true
+        },
+        {
+          "kind": "switch",
+          "selected": false
+        },
+        {
+          "kind": "switch",
+          "selected": true,
+          "enabled": false
+        },
+        {
+          "kind": "slider",
+          "min": 0,
+          "max": 100,
+          "value": 40,
+          "width": 240
+        },
+        {
+          "kind": "slider",
+          "min": 0,
+          "max": 4,
+          "value": 2,
+          "steps": 3,
+          "width": 240
+        },
+        {
+          "kind": "range_slider",
+          "min": 0,
+          "max": 100,
+          "low": 20,
+          "high": 70,
+          "width": 240
+        },
+        {
+          "kind": "chip",
+          "variant": "assist",
+          "label": "Assist",
+          "leading": "+"
+        },
+        {
+          "kind": "chip",
+          "variant": "assist",
+          "label": "Elevated",
+          "elevated": true
+        },
+        {
+          "kind": "chip",
+          "variant": "filter",
+          "label": "Filter",
+          "selected": true
+        },
+        {
+          "kind": "chip",
+          "variant": "input",
+          "label": "Input",
+          "selected": true,
+          "trailing": "×"
+        },
+        {
+          "kind": "chip",
+          "variant": "suggestion",
+          "label": "Suggestion",
+          "leading": "+"
+        }
       ]
     },
     {
       "id": "misc",
       "title": "Badges and dividers",
       "items": [
-        {"kind": "badge", "content": "dot"},
-        {"kind": "badge", "content": "3"},
-        {"kind": "badge", "content": "12"},
-        {"kind": "divider"}
+        {
+          "kind": "badge",
+          "content": "dot"
+        },
+        {
+          "kind": "badge",
+          "content": "3"
+        },
+        {
+          "kind": "badge",
+          "content": "12"
+        },
+        {
+          "kind": "divider"
+        }
       ]
     }
   ]

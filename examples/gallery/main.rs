@@ -241,8 +241,7 @@ impl Render for Gallery {
             .child(div().flex_1().child(HorizontalDivider::new()))
             .child(VerticalDivider::new());
 
-        div()
-            .size_full()
+        let content = div()
             .flex()
             .flex_col()
             .gap(px(28.0))
@@ -267,7 +266,12 @@ impl Render for Gallery {
                 "Badges and dividers",
                 theme,
                 div().flex().flex_col().gap(px(12.0)).child(badges).child(dividers),
-            ))
+            ));
+        div()
+            .id("gallery-scroll")
+            .size_full()
+            .overflow_y_scroll()
+            .child(content)
     }
 }
 

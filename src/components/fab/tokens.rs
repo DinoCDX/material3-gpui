@@ -1,11 +1,52 @@
 use crate::tokens::shape::ShapeToken;
 
-pub const EXTENDED_HEIGHT: f32 = 56.0;
-pub const EXTENDED_ICON_SIZE: f32 = 24.0;
-pub const EXTENDED_LEADING_SPACE: f32 = 16.0;
-pub const EXTENDED_ICON_LABEL_SPACE: f32 = 12.0;
-pub const EXTENDED_TRAILING_SPACE: f32 = 20.0;
-pub const EXTENDED_SHAPE: ShapeToken = ShapeToken::CornerLarge;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ExtendedFabSize {
+    Small,
+    Medium,
+    Large,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExtendedFabTokens {
+    pub height: f32,
+    pub icon_size: f32,
+    pub icon_label_space: f32,
+    pub leading_space: f32,
+    pub trailing_space: f32,
+    pub shape: ShapeToken,
+}
+
+impl ExtendedFabSize {
+    pub const fn tokens(self) -> ExtendedFabTokens {
+        match self {
+            Self::Small => ExtendedFabTokens {
+                height: 56.0,
+                icon_size: 24.0,
+                icon_label_space: 8.0,
+                leading_space: 16.0,
+                trailing_space: 16.0,
+                shape: ShapeToken::CornerLarge,
+            },
+            Self::Medium => ExtendedFabTokens {
+                height: 80.0,
+                icon_size: 28.0,
+                icon_label_space: 16.0,
+                leading_space: 26.0,
+                trailing_space: 26.0,
+                shape: ShapeToken::CornerLarge,
+            },
+            Self::Large => ExtendedFabTokens {
+                height: 96.0,
+                icon_size: 32.0,
+                icon_label_space: 20.0,
+                leading_space: 28.0,
+                trailing_space: 28.0,
+                shape: ShapeToken::CornerExtraLarge,
+            },
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FabSize {
@@ -60,8 +101,10 @@ mod tests {
     }
 
     #[test]
-    fn extended_fab_matches_the_reference() {
-        assert_eq!(EXTENDED_HEIGHT, 56.0);
-        assert_eq!(EXTENDED_SHAPE, ShapeToken::CornerLarge);
+    fn extended_fab_sizes_match_the_reference() {
+        assert_eq!(ExtendedFabSize::Small.tokens().height, 56.0);
+        assert_eq!(ExtendedFabSize::Medium.tokens().height, 80.0);
+        assert_eq!(ExtendedFabSize::Large.tokens().height, 96.0);
+        assert_eq!(ExtendedFabSize::Large.tokens().shape, ShapeToken::CornerExtraLarge);
     }
 }

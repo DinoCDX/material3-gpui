@@ -1,0 +1,9 @@
+pub const TRACK_WIDTH: f32 = 52.0;
+pub const TRACK_HEIGHT: f32 = 32.0;
+pub const TRACK_OUTLINE_WIDTH: f32 = 2.0;
+pub const UNSELECTED_HANDLE_SIZE: f32 = 16.0;
+pub const SELECTED_HANDLE_SIZE: f32 = 24.0;
+pub const SELECTED_ICON_SIZE: f32 = 16.0;
+pub const STATE_LAYER_SIZE: f32 = 40.0;
+pub const DISABLED_TRACK_OPACITY: f32 = 0.12;
+pub const DISABLED_OPACITY: f32 = 0.38;

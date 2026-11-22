@@ -41,10 +41,13 @@ pub fn indication_layer(
                 let radius = config
                     .radius
                     .unwrap_or_else(|| end_radius(element.size.0, element.size.1, config.bounded));
-                let center = (
-                    element.origin.0 + element.size.0 / 2.0,
-                    element.origin.1 + element.size.1 / 2.0,
-                );
+                let center = match config.state_center {
+                    Some((x, y)) => (element.origin.0 + x, element.origin.1 + y),
+                    None => (
+                        element.origin.0 + element.size.0 / 2.0,
+                        element.origin.1 + element.size.1 / 2.0,
+                    ),
+                };
                 let fill = Hsla {
                     a: config.color.a * alpha,
                     ..config.color

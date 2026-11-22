@@ -21,13 +21,14 @@ use crate::tokens::elevation::ElevationLevel;
 use crate::tokens::shape::ShapeToken;
 use state::next_selected;
 use style::IconButtonVariant;
-use tokens::IconButtonSize;
+use tokens::{IconButtonSize, IconButtonWidth};
 
 pub struct IconButton {
     id: ElementId,
     icon: ElementBuilder,
     variant: IconButtonVariant,
     size: IconButtonSize,
+    width: IconButtonWidth,
     shape_round: bool,
     toggleable: bool,
     selected: bool,
@@ -51,6 +52,7 @@ impl IconButton {
             icon: Box::new(icon),
             variant: IconButtonVariant::Standard,
             size: IconButtonSize::Small,
+            width: IconButtonWidth::Default,
             shape_round: true,
             toggleable: false,
             selected: false,
@@ -68,6 +70,11 @@ impl IconButton {
 
     pub fn size(mut self, size: IconButtonSize) -> Self {
         self.size = size;
+        self
+    }
+
+    pub fn width(mut self, width: IconButtonWidth) -> Self {
+        self.width = width;
         self
     }
 
@@ -127,7 +134,8 @@ impl Render for IconButton {
         let elevation = StateElevation::constant(ElevationLevel::Level0);
 
         let slot = div()
-            .size(px(size.icon_size))
+            .w(px(size.container_width(self.width)))
+            .h(px(size.container_size))
             .flex()
             .items_center()
             .justify_center()

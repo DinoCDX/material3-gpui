@@ -120,6 +120,8 @@ pub struct Surface {
     colors: Option<SurfaceColors>,
     controller: Option<Entity<InteractionController>>,
     activate: Option<ActivateFn>,
+    state_radius: Option<f32>,
+    state_center: Option<(f32, f32)>,
     children: Vec<AnyElement>,
 }
 
@@ -131,6 +133,8 @@ impl Surface {
             colors: None,
             controller: None,
             activate: None,
+            state_radius: None,
+            state_center: None,
             children: Vec::new(),
         }
     }
@@ -147,6 +151,16 @@ impl Surface {
 
     pub fn interactive(mut self, controller: Entity<InteractionController>) -> Self {
         self.controller = Some(controller);
+        self
+    }
+
+    pub fn state_layer_radius(mut self, radius: f32) -> Self {
+        self.state_radius = Some(radius);
+        self
+    }
+
+    pub fn state_layer_center(mut self, x: f32, y: f32) -> Self {
+        self.state_center = Some((x, y));
         self
     }
 
@@ -202,6 +216,8 @@ impl RenderOnce for Surface {
         if let Some(controller) = &self.controller {
             let config = RippleConfig {
                 focus,
+                radius: self.state_radius,
+                state_center: self.state_center,
                 ..RippleConfig::new(colors.content, true)
             };
             controller.update(cx, |state, cx| {

@@ -25,6 +25,12 @@ enum Item {
     Fab(Entity<Fab>),
     Divider,
     Badge(Option<String>),
+    Checkbox(Entity<Checkbox>),
+    Radio(Entity<RadioButton>),
+    Switch(Entity<Switch>),
+    Slider(Entity<Slider>),
+    RangeSlider(Entity<RangeSlider>),
+    Chip(Entity<Chip>),
 }
 
 struct Showcase {
@@ -105,6 +111,31 @@ fn find_role(name: &str) -> ColorRole {
         .unwrap_or(ColorRole::OnSurface)
 }
 
+fn number(item: &Value, key: &str, default: f32) -> f32 {
+    item[key].as_f64().map_or(default, |value| value as f32)
+}
+
+fn flag(item: &Value, key: &str, default: bool) -> bool {
+    item[key].as_bool().unwrap_or(default)
+}
+
+fn checkbox_state(name: &str) -> CheckboxState {
+    match name {
+        "checked" => CheckboxState::Checked,
+        "indeterminate" => CheckboxState::Indeterminate,
+        _ => CheckboxState::Unchecked,
+    }
+}
+
+fn chip_kind(name: &str) -> ChipKind {
+    match name {
+        "filter" => ChipKind::Filter,
+        "input" => ChipKind::Input,
+        "suggestion" => ChipKind::Suggestion,
+        _ => ChipKind::Assist,
+    }
+}
+
 fn glyph() -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
     |_, _| div().child("+").into_any_element()
 }
@@ -158,6 +189,84 @@ impl Showcase {
                             }
                         }))
                     }
+                    "checkbox" => {
+                        let state = checkbox_state(text_field(item, "state"));
+                        let enabled = flag(item, "enabled", true);
+                        let error = flag(item, "error", false);
+                        Item::Checkbox(cx.new(|cx| {
+                            Checkbox::new(id, cx).state(state).enabled(enabled).error(error)
+                        }))
+                    }
+                    "radio" => {
+                        let selected = flag(item, "selected", false);
+                        let enabled = flag(item, "enabled", true);
+                        Item::Radio(cx.new(|cx| {
+                            RadioButton::new(id, cx).selected(selected).enabled(enabled)
+                        }))
+                    }
+                    "switch" => {
+                        let selected = flag(item, "selected", false);
+                        let enabled = flag(item, "enabled", true);
+                        let icon = flag(item, "icon", false);
+                        Item::Switch(cx.new(|cx| {
+                            Switch::new(id, cx)
+                                .selected(selected)
+                                .enabled(enabled)
+                                .show_icon(icon)
+                        }))
+                    }
+                    "slider" => {
+                        let min = number(item, "min", 0.0);
+                        let max = number(item, "max", 100.0);
+                        let value = number(item, "value", min);
+                        let steps = number(item, "steps", 0.0) as usize;
+                        let width = number(item, "width", 240.0);
+                        let enabled = flag(item, "enabled", true);
+                        Item::Slider(cx.new(|cx| {
+                            Slider::new(id, min, max, cx)
+                                .value(value)
+                                .steps(steps)
+                                .width(width)
+                                .enabled(enabled)
+                        }))
+                    }
+                    "range_slider" => {
+                        let min = number(item, "min", 0.0);
+                        let max = number(item, "max", 100.0);
+                        let low = number(item, "low", min);
+                        let high = number(item, "high", max);
+                        let steps = number(item, "steps", 0.0) as usize;
+                        let width = number(item, "width", 240.0);
+                        let enabled = flag(item, "enabled", true);
+                        Item::RangeSlider(cx.new(|cx| {
+                            RangeSlider::new(id, min, max, cx)
+                                .values(low, high)
+                                .steps(steps)
+                                .width(width)
+                                .enabled(enabled)
+                        }))
+                    }
+                    "chip" => {
+                        let kind = chip_kind(text_field(item, "variant"));
+                        let label = text_field(item, "label").to_string();
+                        let selected = flag(item, "selected", false);
+                        let elevated = flag(item, "elevated", false);
+                        let leading = item["leading"].as_str().map(str::to_string);
+                        let trailing = item["trailing"].as_str().map(str::to_string);
+                        Item::Chip(cx.new(|cx| {
+                            let chip = Chip::new(id, kind, label, cx)
+                                .selected(selected)
+                                .elevated(elevated);
+                            let chip = match leading {
+                                Some(glyph) => chip.leading_icon(glyph),
+                                None => chip,
+                            };
+                            match trailing {
+                                Some(glyph) => chip.trailing_icon(glyph),
+                                None => chip,
+                            }
+                        }))
+                    }
                     "divider" => Item::Divider,
                     "badge" => match text_field(item, "content") {
                         "dot" => Item::Badge(None),
@@ -191,12 +300,16 @@ impl Showcase {
             if self.frame_times.len() >= FRAMES_PER_REPORT {
                 let count = self.frame_times.len();
                 let total: f64 = self.frame_times.iter().sum();
-                let max = self.frame_times.iter().copied().fold(0.0, f64::max);
+                let mut sorted = self.frame_times.clone();
+                sorted.sort_by(f64::total_cmp);
+                let p95 = sorted[((count - 1) as f64 * 0.95) as usize];
                 report(json!({
                     "event": "frames",
                     "count": count,
                     "avg_ms": total / count as f64,
-                    "max_ms": max,
+                    "min_ms": sorted[0],
+                    "p95_ms": p95,
+                    "max_ms": sorted[count - 1],
                 }));
                 self.frame_times.clear();
             }
@@ -224,6 +337,12 @@ fn render_item(item: &Item, theme: &MaterialTheme) -> AnyElement {
         Item::Button(button) => button.clone().into_any_element(),
         Item::IconButton(button) => button.clone().into_any_element(),
         Item::Fab(fab) => fab.clone().into_any_element(),
+        Item::Checkbox(view) => view.clone().into_any_element(),
+        Item::Radio(view) => view.clone().into_any_element(),
+        Item::Switch(view) => view.clone().into_any_element(),
+        Item::Slider(view) => view.clone().into_any_element(),
+        Item::RangeSlider(view) => view.clone().into_any_element(),
+        Item::Chip(view) => view.clone().into_any_element(),
         Item::Divider => div()
             .w(px(160.0))
             .child(HorizontalDivider::new())
@@ -264,7 +383,11 @@ impl Render for Showcase {
                     .child(row),
             );
         }
-        column
+        div()
+            .id("showcase-scroll")
+            .size_full()
+            .overflow_y_scroll()
+            .child(column)
     }
 }
 

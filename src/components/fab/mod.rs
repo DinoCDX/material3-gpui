@@ -6,21 +6,19 @@ use std::rc::Rc;
 use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, AbsoluteLength, Context, DefiniteLength, ElementId, Entity, IntoElement,
+    AnyElement, App, Context, ElementId, Entity, IntoElement,
     Render, SharedString, Subscription, Window, div, px,
 };
 
 use super::{ElementBuilder, sync_enabled};
+use crate::systems::theme::typography::tracked_text;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
 use crate::systems::theme::ActiveTheme;
 use crate::tokens::elevation::ElevationLevel;
 use style::{FabColor, elevation};
-use tokens::{
-    EXTENDED_HEIGHT, EXTENDED_ICON_LABEL_SPACE, EXTENDED_ICON_SIZE, EXTENDED_LEADING_SPACE,
-    EXTENDED_SHAPE, EXTENDED_TRAILING_SPACE, FabSize,
-};
+use tokens::{ExtendedFabSize, FabSize};
 
 pub struct Fab {
     id: ElementId,
@@ -28,6 +26,7 @@ pub struct Fab {
     size: FabSize,
     color: FabColor,
     extended_label: Option<SharedString>,
+    extended_size: ExtendedFabSize,
     enabled: bool,
     on_click: Option<ActivateFn>,
     controller: Entity<InteractionController>,
@@ -49,6 +48,7 @@ impl Fab {
             size: FabSize::Standard,
             color: FabColor::Primary,
             extended_label: None,
+            extended_size: ExtendedFabSize::Small,
             enabled: true,
             on_click: None,
             controller,
@@ -68,6 +68,11 @@ impl Fab {
 
     pub fn extended(mut self, label: impl Into<SharedString>) -> Self {
         self.extended_label = Some(label.into());
+        self
+    }
+
+    pub fn extended_size(mut self, size: ExtendedFabSize) -> Self {
+        self.extended_size = size;
         self
     }
 
@@ -129,36 +134,29 @@ impl Render for Fab {
                 )
             }
             Some(label) => {
+                let extended = self.extended_size.tokens();
                 let style = crate::tokens::typography::TypeStyle::LabelLarge;
                 let family = cx.theme().typography().font_family(style.font()).clone();
-                let label_element = div()
-                    .font_family(family)
-                    .font_weight(style.weight())
-                    .text_size(px(style.size_sp()))
-                    .line_height(DefiniteLength::Absolute(AbsoluteLength::Pixels(px(
-                        style.line_height(),
-                    ))))
-                    .text_color(content)
-                    .child(label);
+                let label_element = tracked_text(label.as_ref(), style, content, family);
                 let icon_slot = div()
-                    .size(px(EXTENDED_ICON_SIZE))
+                    .size(px(extended.icon_size))
                     .flex()
                     .items_center()
                     .justify_center()
                     .child(icon);
                 let row = div()
-                    .h(px(EXTENDED_HEIGHT))
+                    .h(px(extended.height))
                     .flex()
                     .items_center()
-                    .gap(px(EXTENDED_ICON_LABEL_SPACE))
-                    .pl(px(EXTENDED_LEADING_SPACE))
-                    .pr(px(EXTENDED_TRAILING_SPACE))
+                    .gap(px(extended.icon_label_space))
+                    .pl(px(extended.leading_space))
+                    .pr(px(extended.trailing_space))
                     .text_color(content)
                     .child(icon_slot)
                     .child(label_element);
                 let mut surface = Surface::new(self.id.clone())
                     .style(SurfaceStyle {
-                        shape: EXTENDED_SHAPE,
+                        shape: extended.shape,
                         tonal_elevation: ElevationLevel::Level0,
                         elevation: elevation(),
                         outlined: false,
@@ -182,7 +180,7 @@ mod tests {
     use crate::tokens::shape::ShapeToken;
 
     #[test]
-    fn extended_fab_uses_the_large_corner_shape() {
-        assert_eq!(EXTENDED_SHAPE, ShapeToken::CornerLarge);
+    fn extended_fab_defaults_to_the_small_token_set() {
+        assert_eq!(ExtendedFabSize::Small.tokens().height, 56.0);
     }
 }

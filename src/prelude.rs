@@ -1,4 +1,12 @@
 pub use crate::components::badge::Badge;
+pub use crate::components::chip::{Chip, ChipKind};
+pub use crate::components::checkbox::{Checkbox, CheckboxState};
+pub use crate::components::fab::tokens::ExtendedFabSize;
+pub use crate::components::icon_button::tokens::IconButtonWidth;
+pub use crate::components::radio_button::RadioButton;
+pub use crate::components::slider::math::SliderRange;
+pub use crate::components::slider::{RangeSlider, Slider};
+pub use crate::components::switch::Switch;
 pub use crate::components::button::Button;
 pub use crate::components::button::style::ButtonVariant;
 pub use crate::components::button::tokens::{ButtonShape, ButtonSize};

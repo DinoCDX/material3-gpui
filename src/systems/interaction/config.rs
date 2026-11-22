@@ -56,6 +56,7 @@ impl FocusIndication {
 pub struct RippleConfig {
     pub bounded: bool,
     pub radius: Option<f32>,
+    pub state_center: Option<(f32, f32)>,
     pub color: Hsla,
     pub press_alpha: Option<f32>,
     pub hover_alpha: Option<f32>,
@@ -68,6 +69,7 @@ impl RippleConfig {
         Self {
             bounded,
             radius: None,
+            state_center: None,
             color,
             press_alpha: Some(StateLayer::Press.opacity()),
             hover_alpha: Some(StateLayer::Hover.opacity()),
