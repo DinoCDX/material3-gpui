@@ -21,3 +21,7 @@ dependencies {
 application {
     mainClass.set("MainKt")
 }
+
+tasks.named<org.gradle.api.tasks.Sync>("installDist") {
+    duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+}
