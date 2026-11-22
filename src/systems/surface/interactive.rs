@@ -7,11 +7,13 @@ use super::{Surface, SurfaceStyle};
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 
+type ContentBuilder = Box<dyn Fn(&mut Window, &mut App) -> AnyElement>;
+
 pub struct InteractiveSurface {
     id: ElementId,
     style: SurfaceStyle,
     controller: Entity<InteractionController>,
-    content: Box<dyn Fn(&mut Window, &mut App) -> AnyElement>,
+    content: ContentBuilder,
     _observation: Subscription,
 }
 

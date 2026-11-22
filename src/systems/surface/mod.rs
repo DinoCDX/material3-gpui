@@ -264,10 +264,8 @@ impl RenderOnce for Surface {
                     release.update(cx, |state, cx| {
                         state.handle(InteractionEvent::PressRelease, cx)
                     });
-                    if completed {
-                        if let Some(activate) = &activate_mouse {
-                            (activate.as_ref())(window, cx);
-                        }
+                    if completed && let Some(activate) = &activate_mouse {
+                        (activate.as_ref())(window, cx);
                     }
                 })
                 .on_key_down(move |event, _window, cx| {
@@ -284,10 +282,8 @@ impl RenderOnce for Surface {
                         key_up.update(cx, |state, cx| {
                             state.handle(InteractionEvent::PressRelease, cx)
                         });
-                        if completed {
-                            if let Some(activate) = &activate_key {
-                                (activate.as_ref())(window, cx);
-                            }
+                        if completed && let Some(activate) = &activate_key {
+                            (activate.as_ref())(window, cx);
                         }
                     }
                 });

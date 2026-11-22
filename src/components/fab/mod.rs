@@ -179,6 +179,7 @@ impl Render for Fab {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tokens::shape::ShapeToken;
 
     #[test]
     fn extended_fab_uses_the_large_corner_shape() {
