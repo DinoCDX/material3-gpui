@@ -3,6 +3,7 @@ pub mod tokens;
 
 use std::rc::Rc;
 
+use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, AbsoluteLength, Context, DefiniteLength, ElementId, Entity, IntoElement,
@@ -15,7 +16,6 @@ use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
 use crate::systems::theme::ActiveTheme;
 use crate::tokens::elevation::ElevationLevel;
-use crate::tokens::shape::ShapeToken;
 use style::{FabColor, elevation};
 use tokens::{
     EXTENDED_HEIGHT, EXTENDED_ICON_LABEL_SPACE, EXTENDED_ICON_SIZE, EXTENDED_LEADING_SPACE,

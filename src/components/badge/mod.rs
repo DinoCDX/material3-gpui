@@ -1,5 +1,6 @@
 pub mod tokens;
 
+use gpui::prelude::*;
 use gpui::{App, IntoElement, RenderOnce, SharedString, Window, div, px};
 
 use crate::systems::theme::ActiveTheme;
@@ -66,6 +67,7 @@ impl RenderOnce for Badge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tokens::typography::TypeStyle;
 
     #[test]
     fn dot_and_count_are_distinct_content() {

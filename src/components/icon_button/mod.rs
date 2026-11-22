@@ -4,6 +4,7 @@ pub mod tokens;
 
 use std::rc::Rc;
 
+use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, ElementId, Entity, IntoElement, Render, Subscription, Window, div,

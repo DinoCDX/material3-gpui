@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     App, Application, Bounds, Context, Entity, IntoElement, Render, Window, WindowBounds,

@@ -1,4 +1,7 @@
-use gpui::{AnyElement, App, Context, ElementId, Entity, IntoElement, Render, Subscription, Window};
+use gpui::{
+    AnyElement, App, AppContext, Context, ElementId, Entity, IntoElement, ParentElement, Render,
+    Subscription, Window,
+};
 
 use super::{Surface, SurfaceStyle};
 use crate::systems::interaction::config::RippleConfig;

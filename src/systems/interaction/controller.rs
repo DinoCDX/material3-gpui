@@ -162,7 +162,7 @@ impl InteractionController {
         self.finish_ripples(now);
         if self.config.press_alpha.is_some() {
             let origin = if self.config.bounded {
-                position.map(|point| (point.x.0, point.y.0))
+                position.map(|point| (f32::from(&point.x), f32::from(&point.y)))
             } else {
                 None
             };
@@ -240,7 +240,7 @@ impl InteractionController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::{TestAppContext, point, px};
+    use gpui::{AppContext, TestAppContext, point, px};
     use std::time::Duration;
 
     fn controller(

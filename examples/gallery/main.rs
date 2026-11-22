@@ -1,3 +1,4 @@
+use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Bounds, Context, Entity, IntoElement, Render, Window, WindowBounds,

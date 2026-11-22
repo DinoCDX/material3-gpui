@@ -99,8 +99,8 @@ pub fn indication_layer(
 
 fn element_rect(bounds: Bounds<Pixels>) -> ElementRect {
     ElementRect {
-        origin: (bounds.origin.x.0, bounds.origin.y.0),
-        size: (bounds.size.width.0, bounds.size.height.0),
+        origin: (f32::from(&bounds.origin.x), f32::from(&bounds.origin.y)),
+        size: (f32::from(&bounds.size.width), f32::from(&bounds.size.height)),
     }
 }
 

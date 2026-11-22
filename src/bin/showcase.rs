@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Instant;
 
+use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Application, Bounds, Context, Entity, IntoElement, Render, Window,

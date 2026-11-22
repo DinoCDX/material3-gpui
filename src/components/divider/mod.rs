@@ -1,5 +1,6 @@
 pub mod tokens;
 
+use gpui::prelude::*;
 use gpui::{App, Hsla, IntoElement, RenderOnce, Window, div, px};
 
 use crate::systems::theme::ActiveTheme;
