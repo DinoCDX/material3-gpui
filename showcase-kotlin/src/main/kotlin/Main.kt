@@ -38,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -275,7 +274,6 @@ fun ShowcaseApp(spec: JsonObject, toggles: StateFlow<Int>, startupMs: Double) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             screen["items"]!!.jsonArray.forEach { itemElement ->
                                 ShowcaseItem(itemElement.jsonObject, scheme, MaterialTheme.typography)
