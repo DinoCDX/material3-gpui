@@ -165,7 +165,11 @@ mod tests {
         let rounded =
             rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), [9999.0; 4], CORNER_SEGMENTS);
         let expected = std::f32::consts::PI * 50.0 * 50.0;
-        assert!((area(&clip_convex(&circle, &rounded)) - expected).abs() < 0.02 * expected);
+        let clipped = area(&clip_convex(&circle, &rounded));
+        assert!(
+            (clipped - expected).abs() < 0.02 * expected,
+            "clipped area {clipped} differs from circle area {expected}"
+        );
     }
 
     #[test]
