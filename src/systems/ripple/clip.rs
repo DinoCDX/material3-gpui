@@ -2,6 +2,7 @@ pub type Point2 = (f32, f32);
 
 pub const CIRCLE_SEGMENTS: usize = 128;
 pub const CORNER_SEGMENTS: usize = 16;
+const DEGENERATE_EDGE_LENGTH_SQUARED: f32 = 1e-10;
 
 pub fn circle_polygon(center: Point2, radius: f32, segments: usize) -> Vec<Point2> {
     (0..segments)
@@ -83,6 +84,9 @@ pub fn clip_convex(subject: &[Point2], clip: &[Point2]) -> Vec<Point2> {
         }
         let edge_start = clip[index];
         let edge_end = clip[(index + 1) % clip.len()];
+        if length_squared(edge_start, edge_end) <= DEGENERATE_EDGE_LENGTH_SQUARED {
+            continue;
+        }
         let input = std::mem::take(&mut output);
         let count = input.len();
         for current_index in 0..count {
@@ -119,6 +123,12 @@ fn intersection(p1: Point2, p2: Point2, a: Point2, b: Point2) -> Point2 {
     }
     let t = cross((a.0 - p1.0, a.1 - p1.1), edge) / denominator;
     (p1.0 + direction.0 * t, p1.1 + direction.1 * t)
+}
+
+fn length_squared(a: Point2, b: Point2) -> f32 {
+    let dx = b.0 - a.0;
+    let dy = b.1 - a.1;
+    dx * dx + dy * dy
 }
 
 fn cross(a: Point2, b: Point2) -> f32 {
@@ -188,6 +198,21 @@ mod tests {
     #[test]
     fn radii_are_clamped_to_half_the_short_side() {
         assert_eq!(clamp_corners([99.0; 4], (40.0, 60.0)), [20.0; 4]);
+    }
+
+    #[test]
+    fn near_duplicate_corner_joins_do_not_empty_the_clip() {
+        let circle = circle_polygon((50.0, 50.0), 60.0, CIRCLE_SEGMENTS);
+        let mut rounded =
+            rounded_rect_polygon((0.0, 0.0), (100.0, 100.0), [9999.0; 4], CORNER_SEGMENTS);
+        let join = rounded[CORNER_SEGMENTS];
+        rounded.insert(CORNER_SEGMENTS + 1, (join.0 + 1e-6, join.1 - 1e-6));
+        let expected = std::f32::consts::PI * 50.0 * 50.0;
+        let clipped = area(&clip_convex(&circle, &rounded));
+        assert!(
+            (clipped - expected).abs() < 0.02 * expected,
+            "clipped area {clipped} differs from circle area {expected}"
+        );
     }
 
     #[test]
