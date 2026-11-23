@@ -1,7 +1,6 @@
 pub mod math;
 pub mod tokens;
 
-use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
     App, Bounds, Context, DispatchPhase, Entity, ElementId, FocusHandle, Hsla, IntoElement,

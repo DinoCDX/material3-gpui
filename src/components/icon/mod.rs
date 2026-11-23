@@ -1,3 +1,4 @@
+use gpui::prelude::*;
 use gpui::{AnyElement, App, Hsla, IntoElement, RenderOnce, Window, canvas, div, px};
 
 use crate::systems::geometry::{Point2, Stroke, paint_strokes};

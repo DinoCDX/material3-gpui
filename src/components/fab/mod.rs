@@ -177,7 +177,6 @@ impl Render for Fab {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tokens::shape::ShapeToken;
 
     #[test]
     fn extended_fab_defaults_to_the_small_token_set() {

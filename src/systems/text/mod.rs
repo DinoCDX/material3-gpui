@@ -14,7 +14,7 @@ use layout::glyph_positions;
 
 const CACHE_LIMIT: usize = 512;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ShapeKey {
     text: String,
     style: TypeStyle,
@@ -62,13 +62,13 @@ pub fn shape_tracked(
         .iter()
         .map(|character| shape_piece(window, character, font_size, style))
         .collect();
-    let advances: Vec<f32> = glyphs.iter().map(|glyph| f32::from(&glyph.width())).collect();
+    let advances: Vec<f32> = glyphs.iter().map(|glyph| f32::from(&glyph.width)).collect();
     let kerning: Vec<f32> = characters
         .windows(2)
         .enumerate()
         .map(|(index, pair)| {
             let joined = format!("{}{}", pair[0], pair[1]);
-            let joined_width = f32::from(&shape_piece(window, &joined, font_size, style).width());
+            let joined_width = f32::from(&shape_piece(window, &joined, font_size, style).width);
             joined_width - advances[index] - advances[index + 1]
         })
         .collect();
