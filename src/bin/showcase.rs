@@ -136,7 +136,12 @@ fn glyph() -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
 }
 
 impl Showcase {
-    fn new(cx: &mut Context<Self>, spec: &Value, toggle: Arc<AtomicBool>) -> Self {
+    fn new(
+        cx: &mut Context<Self>,
+        spec: &Value,
+        toggle: Arc<AtomicBool>,
+        started: Instant,
+    ) -> Self {
         let mut screens = Vec::new();
         for (screen_index, screen) in spec["screens"].as_array().into_iter().flatten().enumerate() {
             let mut items = Vec::new();
@@ -276,7 +281,7 @@ impl Showcase {
         Self {
             screens,
             toggle,
-            started: Instant::now(),
+            started,
             last_frame: None,
             frame_times: Vec::new(),
             reported_ready: false,
@@ -324,6 +329,9 @@ fn render_item(item: &Item, theme: &MaterialTheme) -> AnyElement {
         Item::Swatch { role, name } => div()
             .w(px(140.0))
             .h(px(44.0))
+            .flex()
+            .items_center()
+            .justify_center()
             .bg(theme.color(*role))
             .text_size(px(11.0))
             .text_color(theme.color(ColorRole::OnSurface))
@@ -357,7 +365,6 @@ impl Render for Showcase {
 
         let theme = cx.theme();
         let mut column = div()
-            .size_full()
             .flex()
             .flex_col()
             .gap(px(28.0))
@@ -410,8 +417,9 @@ fn main() {
     let toggle = Arc::new(AtomicBool::new(false));
     spawn_command_reader(Arc::clone(&toggle));
 
+    let started = Instant::now();
     run_app(
         AppConfig::new(seed).size(1280.0, 2000.0),
-        move |_, cx| cx.new(|cx| Showcase::new(cx, &spec, toggle)),
+        move |_, cx| cx.new(|cx| Showcase::new(cx, &spec, toggle, started)),
     );
 }

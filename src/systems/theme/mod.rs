@@ -3,6 +3,8 @@ pub mod scheme;
 pub mod typography;
 
 use gpui::{App, BorrowAppContext, Global, Hsla};
+use material_color_utils::dynamic::color_spec::SpecVersion;
+use material_color_utils::dynamic::variant::Variant;
 use material_color_utils::{theme_from_color, utils::color_utils::Argb};
 
 use crate::systems::interaction::config::FocusIndication;
@@ -30,7 +32,10 @@ impl Global for MaterialTheme {}
 
 impl MaterialTheme {
     pub fn from_seed(seed: Argb, mode: ThemeMode) -> Self {
-        let generated = theme_from_color(seed).call();
+        let generated = theme_from_color(seed)
+            .spec_version(SpecVersion::Spec2021)
+            .variant(Variant::TonalSpot)
+            .call();
         Self {
             seed,
             mode,

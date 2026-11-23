@@ -487,7 +487,6 @@ impl Render for Launcher {
         }
 
         let content = div()
-            .size_full()
             .flex()
             .flex_col()
             .gap(px(20.0))
