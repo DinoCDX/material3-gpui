@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use super::sync_enabled;
-use crate::systems::theme::typography::tracked_text;
+use crate::systems::text::TrackedText;
 use crate::systems::blend::with_alpha;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
@@ -253,8 +253,8 @@ impl Render for Chip {
                     .child(glyph),
             );
         }
-        row = row.child(tracked_text(
-            self.label.as_ref(),
+        row = row.child(TrackedText::new(
+            self.label.clone(),
             style,
             colors.label_text,
             family,

@@ -1,9 +1,5 @@
-use gpui::AppContext;
 use gpui::prelude::*;
-use gpui::{
-    AnyElement, App, Bounds, Context, Entity, IntoElement, Render, Window, WindowBounds,
-    WindowOptions, div, px, size, Application,
-};
+use gpui::{AnyElement, App, AppContext, Context, Entity, IntoElement, Render, Window, div, px};
 use material_color_utils::utils::color_utils::Argb;
 use material3_gpui::prelude::*;
 
@@ -34,6 +30,7 @@ struct Gallery {
     buttons: Vec<Entity<Button>>,
     icon_buttons: Vec<Entity<IconButton>>,
     fabs: Vec<Entity<Fab>>,
+    morph: Entity<MorphView>,
 }
 
 impl Gallery {
@@ -104,12 +101,14 @@ impl Gallery {
             }),
         ];
 
+        let morph = cx.new(|_| MorphView::new(&Preset::ALL, 1.0, 0.8));
         Self {
             mode_toggle,
             seed_toggle,
             buttons,
             icon_buttons,
             fabs,
+            morph,
         }
     }
 }
@@ -259,6 +258,11 @@ impl Render for Gallery {
             .child(section("Type scale", theme, type_scale))
             .child(section("Shapes", theme, shapes))
             .child(section("Elevation", theme, elevations))
+            .child(section(
+                "Shapes",
+                theme,
+                div().w(px(260.0)).h(px(260.0)).child(self.morph.clone()),
+            ))
             .child(section("Buttons", theme, button_row))
             .child(section("Icon buttons", theme, icon_row))
             .child(section("FABs", theme, fab_row))
@@ -276,17 +280,8 @@ impl Render for Gallery {
 }
 
 fn main() {
-    Application::new().run(|cx: &mut App| {
-        MaterialTheme::install(cx, Argb(SEEDS[0]), ThemeMode::Light);
-        let bounds = Bounds::centered(None, size(px(1280.0), px(1800.0)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..Default::default()
-            },
-            |_, cx| cx.new(Gallery::new),
-        )
-        .unwrap();
-        cx.activate(true);
-    });
+    run_app(
+        AppConfig::new(SEEDS[0]).size(1280.0, 1800.0),
+        |_, cx| cx.new(Gallery::new),
+    );
 }

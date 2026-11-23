@@ -10,8 +10,8 @@ use gpui::{
     SharedString, Subscription, Window, div, px,
 };
 
-use super::{ElementBuilder, sync_enabled};
-use crate::systems::theme::typography::tracked_text;
+use super::{IconSource, IntoIconSource, sync_enabled};
+use crate::systems::text::TrackedText;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
@@ -28,8 +28,8 @@ pub struct Button {
     size: ButtonSize,
     shape: ButtonShape,
     enabled: bool,
-    leading_icon: Option<ElementBuilder>,
-    trailing_icon: Option<ElementBuilder>,
+    leading_icon: Option<IconSource>,
+    trailing_icon: Option<IconSource>,
     on_click: Option<ActivateFn>,
     controller: Entity<InteractionController>,
     _observation: Subscription,
@@ -79,19 +79,13 @@ impl Button {
         self
     }
 
-    pub fn leading_icon(
-        mut self,
-        icon: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
-    ) -> Self {
-        self.leading_icon = Some(Box::new(icon));
+    pub fn leading_icon(mut self, icon: impl IntoIconSource) -> Self {
+        self.leading_icon = Some(icon.into_icon_source());
         self
     }
 
-    pub fn trailing_icon(
-        mut self,
-        icon: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
-    ) -> Self {
-        self.trailing_icon = Some(Box::new(icon));
+    pub fn trailing_icon(mut self, icon: impl IntoIconSource) -> Self {
+        self.trailing_icon = Some(icon.into_icon_source());
         self
     }
 
@@ -142,9 +136,17 @@ impl Render for Button {
                 .justify_center()
                 .child(element)
         };
-        let leading = self.leading_icon.as_ref().map(|icon| icon_slot(icon(window, cx)));
-        let trailing = self.trailing_icon.as_ref().map(|icon| icon_slot(icon(window, cx)));
-        let label = tracked_text(self.label.as_ref(), size.label_style, label_color, label_family);
+        let icon_size = size.icon_size;
+        let leading = self
+            .leading_icon
+            .as_ref()
+            .map(|icon| icon_slot(icon.element(icon_size, window, cx)));
+        let trailing = self
+            .trailing_icon
+            .as_ref()
+            .map(|icon| icon_slot(icon.element(icon_size, window, cx)));
+        let label =
+            TrackedText::new(self.label.clone(), size.label_style, label_color, label_family);
 
         let row = div()
             .flex()

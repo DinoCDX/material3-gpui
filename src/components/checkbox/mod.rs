@@ -3,11 +3,12 @@ pub mod tokens;
 use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, Context, ElementId, Entity, Hsla, IntoElement, PathBuilder, Pixels, Render,
-    Subscription, Window, canvas, div, point, px, transparent_black,
+    App, Bounds, Context, ElementId, Entity, Hsla, IntoElement, Pixels, Render, Subscription,
+    Window, canvas, div, px, transparent_black,
 };
 
 use super::{ChangeHandler, sync_enabled};
+use crate::systems::geometry::{Stroke, paint_strokes};
 use crate::systems::blend::with_alpha;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
@@ -38,21 +39,9 @@ impl CheckboxState {
     }
 }
 
-fn segment_polygon(from: (f32, f32), to: (f32, f32), half: f32) -> [(f32, f32); 4] {
-    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
-    let length = (dx * dx + dy * dy).sqrt().max(f32::EPSILON);
-    let (nx, ny) = (-dy / length * half, dx / length * half);
-    [
-        (from.0 + nx, from.1 + ny),
-        (to.0 + nx, to.1 + ny),
-        (to.0 - nx, to.1 - ny),
-        (from.0 - nx, from.1 - ny),
-    ]
-}
-
 fn paint_mark(window: &mut Window, bounds: Bounds<Pixels>, state: CheckboxState, color: Hsla) {
     let origin = (f32::from(&bounds.origin.x), f32::from(&bounds.origin.y));
-    let strokes: Vec<[(f32, f32); 2]> = match state {
+    let strokes: Vec<Stroke> = match state {
         CheckboxState::Checked => vec![
             [(3.5, 9.5), (7.5, 13.5)],
             [(7.5, 13.5), (14.5, 5.5)],
@@ -60,19 +49,7 @@ fn paint_mark(window: &mut Window, bounds: Bounds<Pixels>, state: CheckboxState,
         CheckboxState::Indeterminate => vec![[(4.0, 9.0), (14.0, 9.0)]],
         CheckboxState::Unchecked => Vec::new(),
     };
-    for [from, to] in strokes {
-        let polygon = segment_polygon(from, to, STROKE_WIDTH / 2.0);
-        let mut builder = PathBuilder::fill();
-        let first = point(px(origin.0 + polygon[0].0), px(origin.1 + polygon[0].1));
-        builder.move_to(first);
-        for vertex in &polygon[1..] {
-            builder.line_to(point(px(origin.0 + vertex.0), px(origin.1 + vertex.1)));
-        }
-        builder.line_to(first);
-        if let Ok(path) = builder.build() {
-            window.paint_path(path, color);
-        }
-    }
+    paint_strokes(window, origin, &strokes, STROKE_WIDTH, color);
 }
 
 #[derive(Clone, Copy, Debug)]

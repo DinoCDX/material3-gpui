@@ -8,7 +8,7 @@ use gpui::{
 
 use super::animation::{ElementRect, end_radius};
 use super::clip::{
-    CIRCLE_SEGMENTS, CORNER_SEGMENTS, circle_polygon, clip_convex, rounded_rect_polygon,
+    CORNER_SEGMENTS, circle_polygon, circle_segments, clip_convex, rounded_rect_polygon,
 };
 use crate::systems::interaction::config::{FocusIndication, InsetRingGeometry};
 use crate::systems::interaction::controller::InteractionController;
@@ -118,7 +118,7 @@ fn fill_clipped_circle(
         return;
     }
     let surface = rounded_rect_polygon(clip.origin, clip.size, clip.corners, CORNER_SEGMENTS);
-    let circle = circle_polygon(center, radius, CIRCLE_SEGMENTS);
+    let circle = circle_polygon(center, radius, circle_segments(radius));
     let region = clip_convex(&circle, &surface);
     if region.len() < 3 {
         return;

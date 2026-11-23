@@ -1,9 +1,7 @@
-use gpui::{
-    AbsoluteLength, DefiniteLength, Hsla, IntoElement, Pixels, SharedString, TextRun, TextStyle,
-    div, prelude::*, px,
-};
+use gpui::{Hsla, Pixels, SharedString, TextStyle, px};
 
-use crate::tokens::typography::{FontRole, SANS_SERIF_FONT_FAMILY, TypeStyle};
+use crate::systems::text::text_style_for;
+use crate::tokens::typography::{FontRole, TypeStyle};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Typography {
@@ -19,6 +17,17 @@ impl Typography {
         }
     }
 
+    pub fn platform_default() -> Self {
+        let family = if cfg!(target_os = "windows") {
+            "Segoe UI"
+        } else if cfg!(target_os = "macos") {
+            "Helvetica Neue"
+        } else {
+            "Noto Sans"
+        };
+        Self::new(family, family)
+    }
+
     pub fn font_family(&self, role: FontRole) -> &SharedString {
         match role {
             FontRole::Brand => &self.brand,
@@ -27,18 +36,7 @@ impl Typography {
     }
 
     pub fn text_style(&self, style: TypeStyle, color: Hsla) -> TextStyle {
-        TextStyle {
-            color,
-            font_family: self.font_family(style.font()).clone(),
-            font_size: px(style.size_sp()).into(),
-            line_height: DefiniteLength::Absolute(AbsoluteLength::Pixels(px(style.line_height()))),
-            font_weight: style.weight(),
-            ..Default::default()
-        }
-    }
-
-    pub fn text_run(&self, style: TypeStyle, color: Hsla, len: usize) -> TextRun {
-        self.text_style(style, color).to_run(len)
+        text_style_for(style, color, self.font_family(style.font()).clone())
     }
 
     pub fn letter_spacing(&self, style: TypeStyle) -> Pixels {
@@ -46,38 +44,9 @@ impl Typography {
     }
 }
 
-pub fn tracking_glyphs(text: &str) -> Vec<char> {
-    text.chars()
-        .map(|character| if character == ' ' { '\u{00A0}' } else { character })
-        .collect()
-}
-
-pub fn tracked_text(
-    text: &str,
-    style: TypeStyle,
-    color: Hsla,
-    family: SharedString,
-) -> impl IntoElement {
-    let tracking = style.tracking();
-    let mut row = div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .font_family(family)
-        .font_weight(style.weight())
-        .text_size(px(style.size_sp()))
-        .line_height(DefiniteLength::Absolute(AbsoluteLength::Pixels(px(style.line_height()))))
-        .text_color(color);
-    for glyph in tracking_glyphs(text) {
-        let cell = div().child(glyph.to_string());
-        row = row.child(if tracking > 0.0 { cell.pr(px(tracking)) } else { cell });
-    }
-    row
-}
-
 impl Default for Typography {
     fn default() -> Self {
-        Self::new(SANS_SERIF_FONT_FAMILY, SANS_SERIF_FONT_FAMILY)
+        Self::platform_default()
     }
 }
 
@@ -87,23 +56,25 @@ mod tests {
     use gpui::FontWeight;
 
     #[test]
-    fn tracked_glyphs_keep_spaces_as_non_breaking() {
-        let glyphs = tracking_glyphs("A B");
-        assert_eq!(glyphs, vec!['A', '\u{00A0}', 'B']);
+    fn default_uses_the_platform_family_for_both_roles() {
+        let typography = Typography::default();
+        assert_eq!(typography, Typography::platform_default());
+        assert_eq!(
+            typography.font_family(FontRole::Brand),
+            typography.font_family(FontRole::Plain)
+        );
     }
 
     #[test]
     fn text_style_uses_mapped_family_and_metrics() {
         let typography = Typography::default();
         let style = typography.text_style(TypeStyle::TitleLarge, Hsla::default());
-        assert_eq!(style.font_family.as_ref(), SANS_SERIF_FONT_FAMILY);
+        assert_eq!(style.font_family, typography.font_family(FontRole::Brand).clone());
         assert_eq!(style.font_weight, FontWeight::NORMAL);
     }
 
     #[test]
-    fn text_run_covers_requested_length() {
-        let typography = Typography::default();
-        let run = typography.text_run(TypeStyle::BodyMedium, Hsla::default(), 7);
-        assert_eq!(run.len, 7);
+    fn letter_spacing_is_the_reference_tracking() {
+        assert_eq!(Typography::default().letter_spacing(TypeStyle::BodyLarge), px(0.5));
     }
 }

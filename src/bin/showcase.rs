@@ -4,13 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Instant;
 
-use gpui::AppContext;
 use gpui::prelude::*;
-use gpui::{
-    AnyElement, App, Application, Bounds, Context, Entity, IntoElement, Render, Window,
-    WindowBounds, WindowOptions, div, px, size,
-};
-use material_color_utils::utils::color_utils::Argb;
+use gpui::{AnyElement, App, AppContext, Context, Entity, IntoElement, Render, Window, div, px};
 use material3_gpui::prelude::*;
 use serde_json::{Value, json};
 
@@ -415,17 +410,8 @@ fn main() {
     let toggle = Arc::new(AtomicBool::new(false));
     spawn_command_reader(Arc::clone(&toggle));
 
-    Application::new().run(move |cx: &mut App| {
-        MaterialTheme::install(cx, Argb(seed), ThemeMode::Light);
-        let bounds = Bounds::centered(None, size(px(1280.0), px(2000.0)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..Default::default()
-            },
-            move |_, cx| cx.new(|cx| Showcase::new(cx, &spec, toggle)),
-        )
-        .unwrap();
-        cx.activate(true);
-    });
+    run_app(
+        AppConfig::new(seed).size(1280.0, 2000.0),
+        move |_, cx| cx.new(|cx| Showcase::new(cx, &spec, toggle)),
+    );
 }

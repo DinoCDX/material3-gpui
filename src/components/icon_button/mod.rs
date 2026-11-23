@@ -7,11 +7,10 @@ use std::rc::Rc;
 use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, ElementId, Entity, IntoElement, Render, Subscription, Window, div,
-    px,
+    App, Context, ElementId, Entity, IntoElement, Render, Subscription, Window, div, px,
 };
 
-use super::{ElementBuilder, sync_enabled};
+use super::{IconSource, IntoIconSource, sync_enabled};
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
@@ -25,7 +24,7 @@ use tokens::{IconButtonSize, IconButtonWidth};
 
 pub struct IconButton {
     id: ElementId,
-    icon: ElementBuilder,
+    icon: IconSource,
     variant: IconButtonVariant,
     size: IconButtonSize,
     width: IconButtonWidth,
@@ -41,7 +40,7 @@ pub struct IconButton {
 impl IconButton {
     pub fn new(
         id: impl Into<ElementId>,
-        icon: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
+        icon: impl IntoIconSource,
         cx: &mut Context<Self>,
     ) -> Self {
         let controller =
@@ -49,7 +48,7 @@ impl IconButton {
         let observation = cx.observe(&controller, |_, _, cx| cx.notify());
         Self {
             id: id.into(),
-            icon: Box::new(icon),
+            icon: icon.into_icon_source(),
             variant: IconButtonVariant::Standard,
             size: IconButtonSize::Small,
             width: IconButtonWidth::Default,
@@ -126,7 +125,7 @@ impl Render for IconButton {
         };
         let colors = variant.colors(cx.theme(), selected);
         let icon_color = colors.content;
-        let icon = (self.icon)(window, cx);
+        let icon = self.icon.element(size.icon_size, window, cx);
 
         let view = cx.entity();
         let on_click = self.on_click.clone();

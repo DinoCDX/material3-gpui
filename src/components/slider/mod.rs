@@ -10,15 +10,16 @@ use gpui::{
 
 use super::ChangeHandler;
 use crate::systems::blend::with_alpha;
+use crate::systems::text::{TrackedText, measure_text};
 use crate::systems::theme::{ActiveTheme, MaterialTheme};
-use crate::systems::theme::typography::tracked_text;
 use crate::tokens::color::ColorRole;
 use crate::tokens::typography::TypeStyle;
 use math::SliderRange;
 use tokens::{
     DISABLED_ACTIVE_OPACITY, DISABLED_HANDLE_OPACITY, DISABLED_INACTIVE_OPACITY,
     DISABLED_STOP_OPACITY, FOCUS_HANDLE_WIDTH, HANDLE_HEIGHT, HANDLE_WIDTH, LABEL_AREA_HEIGHT,
-    LABEL_HEIGHT, LABEL_WIDTH, STOP_SIZE, TRACK_HEIGHT, VALUE_INDICATOR_BOTTOM_SPACE,
+    LABEL_HEIGHT, LABEL_PADDING, LABEL_WIDTH, STOP_SIZE, TRACK_HEIGHT,
+    VALUE_INDICATOR_BOTTOM_SPACE,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -99,27 +100,30 @@ fn stop_dot(fraction: f32, width: f32, color: Hsla) -> impl IntoElement {
 }
 
 fn value_label(
+    window: &Window,
     fraction: f32,
     width: f32,
     text: String,
     colors: SliderColors,
     family: SharedString,
 ) -> impl IntoElement {
-    let left = (fraction * width - LABEL_WIDTH / 2.0).clamp(0.0, (width - LABEL_WIDTH).max(0.0));
+    let measured = measure_text(window, &text, TypeStyle::LabelLarge, family.clone());
+    let label_width = (measured + 2.0 * LABEL_PADDING).max(LABEL_WIDTH);
+    let left = (fraction * width - label_width / 2.0).clamp(0.0, (width - label_width).max(0.0));
     let top = LABEL_AREA_HEIGHT - VALUE_INDICATOR_BOTTOM_SPACE - LABEL_HEIGHT;
     div()
         .absolute()
         .top(px(top))
         .left(px(left))
-        .w(px(LABEL_WIDTH))
+        .w(px(label_width))
         .h(px(LABEL_HEIGHT))
         .rounded(px(LABEL_HEIGHT / 2.0))
         .flex()
         .items_center()
         .justify_center()
         .bg(colors.label_background)
-        .child(tracked_text(
-            &text,
+        .child(TrackedText::new(
+            text,
             TypeStyle::LabelLarge,
             colors.label_text,
             family,
@@ -343,7 +347,7 @@ impl Render for Slider {
         }
         root = root.child(handle_bar(fraction, width, handle_width, colors.handle));
         if show_label {
-            root = root.child(value_label(fraction, width, label, colors, family));
+            root = root.child(value_label(window, fraction, width, label, colors, family));
         }
         root
     }
@@ -567,7 +571,7 @@ impl Render for RangeSlider {
             .child(handle_bar(low, width, handle_width, colors.handle))
             .child(handle_bar(high, width, handle_width, colors.handle));
         if show_label {
-            root = root.child(value_label(label_fraction, width, label, colors, family));
+            root = root.child(value_label(window, label_fraction, width, label, colors, family));
         }
         root
     }

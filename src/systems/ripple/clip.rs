@@ -1,8 +1,13 @@
 pub type Point2 = (f32, f32);
 
 pub const CIRCLE_SEGMENTS: usize = 128;
+pub const MIN_CIRCLE_SEGMENTS: usize = 24;
 pub const CORNER_SEGMENTS: usize = 16;
 const DEGENERATE_EDGE_LENGTH_SQUARED: f32 = 1e-10;
+
+pub fn circle_segments(radius: f32) -> usize {
+    ((radius * 0.5).ceil() as usize).clamp(MIN_CIRCLE_SEGMENTS, CIRCLE_SEGMENTS)
+}
 
 pub fn circle_polygon(center: Point2, radius: f32, segments: usize) -> Vec<Point2> {
     (0..segments)
@@ -143,6 +148,12 @@ mod tests {
 
     fn area(polygon: &[Point2]) -> f32 {
         signed_area(polygon).abs()
+    }
+
+    #[test]
+    fn small_circles_use_fewer_segments() {
+        assert_eq!(circle_segments(4.0), MIN_CIRCLE_SEGMENTS);
+        assert_eq!(circle_segments(1000.0), CIRCLE_SEGMENTS);
     }
 
     #[test]

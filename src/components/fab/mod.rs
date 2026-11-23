@@ -6,12 +6,12 @@ use std::rc::Rc;
 use gpui::AppContext;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, ElementId, Entity, IntoElement,
+    App, Context, ElementId, Entity, IntoElement,
     Render, SharedString, Subscription, Window, div, px,
 };
 
-use super::{ElementBuilder, sync_enabled};
-use crate::systems::theme::typography::tracked_text;
+use super::{IconSource, IntoIconSource, sync_enabled};
+use crate::systems::text::TrackedText;
 use crate::systems::interaction::config::RippleConfig;
 use crate::systems::interaction::controller::InteractionController;
 use crate::systems::surface::{ActivateFn, Surface, SurfaceStyle};
@@ -22,7 +22,7 @@ use tokens::{ExtendedFabSize, FabSize};
 
 pub struct Fab {
     id: ElementId,
-    icon: ElementBuilder,
+    icon: IconSource,
     size: FabSize,
     color: FabColor,
     extended_label: Option<SharedString>,
@@ -36,7 +36,7 @@ pub struct Fab {
 impl Fab {
     pub fn new(
         id: impl Into<ElementId>,
-        icon: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
+        icon: impl IntoIconSource,
         cx: &mut Context<Self>,
     ) -> Self {
         let controller =
@@ -44,7 +44,7 @@ impl Fab {
         let observation = cx.observe(&controller, |_, _, cx| cx.notify());
         Self {
             id: id.into(),
-            icon: Box::new(icon),
+            icon: icon.into_icon_source(),
             size: FabSize::Standard,
             color: FabColor::Primary,
             extended_label: None,
@@ -98,7 +98,7 @@ impl Render for Fab {
         let size = self.size.tokens();
         let colors = self.color.colors(cx.theme());
         let content = colors.content;
-        let icon = (self.icon)(window, cx);
+        let icon = self.icon.element(size.icon_size, window, cx);
         let on_click = self.on_click.clone();
 
         match self.extended_label.clone() {
@@ -137,7 +137,7 @@ impl Render for Fab {
                 let extended = self.extended_size.tokens();
                 let style = crate::tokens::typography::TypeStyle::LabelLarge;
                 let family = cx.theme().typography().font_family(style.font()).clone();
-                let label_element = tracked_text(label.as_ref(), style, content, family);
+                let label_element = TrackedText::new(label.clone(), style, content, family);
                 let icon_slot = div()
                     .size(px(extended.icon_size))
                     .flex()
