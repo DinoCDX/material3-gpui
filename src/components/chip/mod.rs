@@ -259,18 +259,18 @@ impl Render for Chip {
             colors.label_text,
             family,
         ));
-        if has_trailing {
-            if let Some(glyph) = self.trailing.clone() {
-                row = row.child(
-                    div()
-                        .size(px(ICON_SIZE))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .text_color(colors.trailing_icon)
-                        .child(glyph),
-                );
-            }
+        if has_trailing
+            && let Some(glyph) = self.trailing.clone()
+        {
+            row = row.child(
+                div()
+                    .size(px(ICON_SIZE))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_color(colors.trailing_icon)
+                    .child(glyph),
+            );
         }
 
         let view = cx.entity();
