@@ -16,7 +16,7 @@ use super::icon::{Icon, IconKind};
 use crate::systems::blend::with_alpha;
 use crate::systems::ripple::easing::fast_out_slow_in;
 use crate::systems::text::{TrackedText, measure_text};
-use crate::systems::theme::{ActiveTheme, MaterialTheme};
+use crate::systems::theme::ActiveTheme;
 use crate::tokens::color::ColorRole;
 use crate::tokens::typography::TypeStyle;
 use editing::{Editing, byte_to_utf16, nearest_boundary, utf16_to_byte};
@@ -232,7 +232,7 @@ impl EntityInputHandler for TextField {
     }
 
     fn marked_text_range(
-        &mut self,
+        &self,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<Range<usize>> {

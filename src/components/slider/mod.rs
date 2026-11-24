@@ -4,7 +4,7 @@ pub mod track;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, Context, DispatchPhase, Div, ElementId, Entity, FocusHandle, Hsla, IntoElement,
+    App, Bounds, Context, DispatchPhase, ElementId, Entity, FocusHandle, Hsla, IntoElement,
     MouseButton, MouseMoveEvent, Pixels, Render, SharedString, Window, canvas, div, px,
 };
 
@@ -65,7 +65,7 @@ fn fraction_from_x(bounds: Option<Bounds<Pixels>>, x: Pixels) -> Option<f32> {
     Some(((f32::from(&x) - left) / width).clamp(0.0, 1.0))
 }
 
-fn draw_piece(root: Div, piece: Piece, colors: SliderColors) -> Div {
+fn draw_piece<E: ParentElement>(root: E, piece: Piece, colors: SliderColors) -> E {
     let top = LABEL_AREA_HEIGHT + (HANDLE_HEIGHT - TRACK_HEIGHT) / 2.0;
     let color = if piece.active {
         colors.active
