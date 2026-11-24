@@ -296,6 +296,80 @@
           "variant": "suggestion",
           "label": "Suggestion",
           "leading": "+"
+        },
+        {
+          "kind": "text_field",
+          "label": "Name",
+          "value": "Ada Lovelace",
+          "supporting": "Shown below the field",
+          "filled": true,
+          "leading": "add",
+          "max": 24
+        },
+        {
+          "kind": "text_field",
+          "label": "Email",
+          "value": "",
+          "supporting": "Required",
+          "error": "Enter an email address",
+          "filled": false,
+          "trailing": "close"
+        }
+      ]
+    },
+    {
+      "id": "containment",
+      "title": "Containment and feedback",
+      "items": [
+        {
+          "kind": "card",
+          "variant": "elevated",
+          "clickable": true,
+          "text": "Elevated card"
+        },
+        {
+          "kind": "card",
+          "variant": "filled",
+          "text": "Filled card"
+        },
+        {
+          "kind": "card",
+          "variant": "outlined",
+          "text": "Outlined card"
+        },
+        {
+          "kind": "list_item",
+          "headline": "Wi-Fi",
+          "leading": "add",
+          "trailing": "check"
+        },
+        {
+          "kind": "list_item",
+          "headline": "Bluetooth",
+          "supporting": "Connected to headphones",
+          "trailing": "check"
+        },
+        {
+          "kind": "list_item",
+          "headline": "Notifications",
+          "supporting": "Allow notifications",
+          "third": "From the apps you use"
+        },
+        {
+          "kind": "linear_progress",
+          "value": 0.6
+        },
+        {
+          "kind": "linear_progress",
+          "indeterminate": true
+        },
+        {
+          "kind": "circular_progress",
+          "value": 0.4
+        },
+        {
+          "kind": "circular_progress",
+          "indeterminate": true
         }
       ]
     },

@@ -3,6 +3,7 @@ pub const HANDLE_WIDTH: f32 = 4.0;
 pub const FOCUS_HANDLE_WIDTH: f32 = 2.0;
 pub const TRACK_HEIGHT: f32 = 16.0;
 pub const STOP_SIZE: f32 = 4.0;
+pub const STOP_TRAILING_SPACE: f32 = 6.0;
 pub const LABEL_AREA_HEIGHT: f32 = 48.0;
 pub const VALUE_INDICATOR_BOTTOM_SPACE: f32 = 12.0;
 pub const LABEL_WIDTH: f32 = 48.0;

@@ -38,6 +38,16 @@ impl SliderRange {
         }
     }
 
+    pub fn stop_positions(self) -> Vec<f32> {
+        if self.steps == 0 {
+            return vec![0.0, 1.0];
+        }
+        let intervals = (self.steps + 1) as f32;
+        (0..=self.steps + 1)
+            .map(|index| index as f32 / intervals)
+            .collect()
+    }
+
     pub fn stop_fractions(self) -> Vec<f32> {
         let intervals = (self.steps + 1) as f32;
         (1..=self.steps).map(|index| index as f32 / intervals).collect()

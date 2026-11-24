@@ -19,7 +19,7 @@ use track::{Piece, range_pieces, single_pieces};
 use tokens::{
     DISABLED_ACTIVE_OPACITY, DISABLED_HANDLE_OPACITY, DISABLED_INACTIVE_OPACITY,
     DISABLED_STOP_OPACITY, FOCUS_HANDLE_WIDTH, HANDLE_HEIGHT, HANDLE_WIDTH, LABEL_AREA_HEIGHT,
-    LABEL_HEIGHT, LABEL_PADDING, LABEL_WIDTH, STOP_SIZE, TRACK_HEIGHT,
+    LABEL_HEIGHT, LABEL_PADDING, LABEL_WIDTH, STOP_SIZE, STOP_TRAILING_SPACE, TRACK_HEIGHT,
     VALUE_INDICATOR_BOTTOM_SPACE,
 };
 
@@ -28,7 +28,8 @@ struct SliderColors {
     active: Hsla,
     inactive: Hsla,
     handle: Hsla,
-    stop: Hsla,
+    stop_active: Hsla,
+    stop_inactive: Hsla,
     label_background: Hsla,
     label_text: Hsla,
 }
@@ -42,7 +43,8 @@ fn slider_colors(theme: &MaterialTheme, enabled: bool) -> SliderColors {
             active: theme.color(ColorRole::Primary),
             inactive: theme.color(ColorRole::SecondaryContainer),
             handle: theme.color(ColorRole::Primary),
-            stop: theme.color(ColorRole::SecondaryContainer),
+            stop_active: theme.color(ColorRole::OnPrimary),
+            stop_inactive: theme.color(ColorRole::Primary),
             label_background,
             label_text,
         }
@@ -51,7 +53,8 @@ fn slider_colors(theme: &MaterialTheme, enabled: bool) -> SliderColors {
             active: with_alpha(on_surface, DISABLED_ACTIVE_OPACITY),
             inactive: with_alpha(on_surface, DISABLED_INACTIVE_OPACITY),
             handle: with_alpha(on_surface, DISABLED_HANDLE_OPACITY),
-            stop: with_alpha(on_surface, DISABLED_STOP_OPACITY),
+            stop_active: with_alpha(on_surface, DISABLED_STOP_OPACITY),
+            stop_inactive: with_alpha(on_surface, DISABLED_STOP_OPACITY),
             label_background,
             label_text,
         }
@@ -99,12 +102,19 @@ fn handle_bar(fraction: f32, width: f32, handle_width: f32, color: Hsla) -> impl
         .bg(color)
 }
 
-fn stop_dot(fraction: f32, width: f32, color: Hsla) -> impl IntoElement {
+fn stop_dot(fraction: f32, width: f32, active: bool, colors: SliderColors) -> impl IntoElement {
+    let inset = STOP_TRAILING_SPACE;
+    let centre = inset + fraction * (width - 2.0 * inset);
     let top = LABEL_AREA_HEIGHT + HANDLE_HEIGHT / 2.0 - STOP_SIZE / 2.0;
+    let color = if active {
+        colors.stop_active
+    } else {
+        colors.stop_inactive
+    };
     div()
         .absolute()
         .top(px(top))
-        .left(px(fraction * width - STOP_SIZE / 2.0))
+        .left(px(centre - STOP_SIZE / 2.0))
         .size(px(STOP_SIZE))
         .rounded(px(STOP_SIZE / 2.0))
         .bg(color)
@@ -351,10 +361,8 @@ impl Render for Slider {
         for piece in single_pieces(width, fraction * width, handle_width, TRACK_HEIGHT / 2.0) {
             root = draw_piece(root, piece, colors);
         }
-        if self.range.steps > 0 {
-            for stop in self.range.stop_fractions() {
-                root = root.child(stop_dot(stop, width, colors.stop));
-            }
+        for stop in self.range.stop_positions() {
+            root = root.child(stop_dot(stop, width, stop <= fraction, colors));
         }
         root = root.child(handle_bar(fraction, width, handle_width, colors.handle));
         if show_label {
@@ -579,10 +587,9 @@ impl Render for RangeSlider {
         ) {
             root = draw_piece(root, piece, colors);
         }
-        if self.range.steps > 0 {
-            for stop in self.range.stop_fractions() {
-                root = root.child(stop_dot(stop, width, colors.stop));
-            }
+        for stop in self.range.stop_positions() {
+            let active = stop >= low && stop <= high;
+            root = root.child(stop_dot(stop, width, active, colors));
         }
         root = root
             .child(handle_bar(low, width, handle_width, colors.handle))

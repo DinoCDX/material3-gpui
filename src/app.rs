@@ -1,5 +1,6 @@
 use gpui::{
-    App, Application, Bounds, Entity, Render, Window, WindowBounds, WindowOptions, px, size,
+    App, Application, Bounds, Entity, Render, SharedString, TitlebarOptions, Window,
+    WindowBounds, WindowOptions, px, size,
 };
 use material_color_utils::utils::color_utils::Argb;
 
@@ -11,6 +12,7 @@ pub struct AppConfig {
     pub mode: ThemeMode,
     pub width: f32,
     pub height: f32,
+    pub title: &'static str,
 }
 
 impl AppConfig {
@@ -20,11 +22,17 @@ impl AppConfig {
             mode: ThemeMode::Light,
             width: 1280.0,
             height: 800.0,
+            title: "Material 3",
         }
     }
 
     pub fn mode(mut self, mode: ThemeMode) -> Self {
         self.mode = mode;
+        self
+    }
+
+    pub fn title(mut self, title: &'static str) -> Self {
+        self.title = title;
         self
     }
 
@@ -45,6 +53,10 @@ pub fn run_app<V: Render + 'static>(
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some(SharedString::from(config.title)),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             root,

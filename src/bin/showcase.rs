@@ -27,11 +27,66 @@ enum Item {
     Slider(Entity<Slider>),
     RangeSlider(Entity<RangeSlider>),
     Chip(Entity<Chip>),
+    TextField(Entity<TextField>),
+    Card(Entity<Card>),
+    ListItem(ListSpec),
+    Progress(ProgressSpec),
+}
+
+#[derive(Clone)]
+struct ListSpec {
+    headline: String,
+    supporting: Option<String>,
+    third: Option<String>,
+    leading: Option<IconKind>,
+    trailing: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+struct ProgressSpec {
+    value: Option<f32>,
+    circular: bool,
+}
+
+fn card_variant(name: &str) -> CardVariant {
+    match name {
+        "filled" => CardVariant::Filled,
+        "outlined" => CardVariant::Outlined,
+        _ => CardVariant::Elevated,
+    }
+}
+
+fn build_list_item(spec: &ListSpec) -> ListItem {
+    let mut row = ListItem::new(spec.headline.clone());
+    if let Some(text) = &spec.supporting {
+        row = row.supporting(text.clone());
+    }
+    if let Some(text) = &spec.third {
+        row = row.third_line(text.clone());
+    }
+    if let Some(kind) = spec.leading {
+        row = row.leading(icon_builder(kind, 24.0));
+    }
+    if let Some(text) = &spec.trailing {
+        let text = text.clone();
+        row = row.trailing(move |_, _| div().child(text.clone()).into_any_element());
+    }
+    row
+}
+
+fn build_progress(spec: ProgressSpec) -> AnyElement {
+    match (spec.circular, spec.value) {
+        (true, Some(value)) => CircularProgress::determinate(value).into_any_element(),
+        (true, None) => CircularProgress::indeterminate().into_any_element(),
+        (false, Some(value)) => LinearProgress::determinate(value).into_any_element(),
+        (false, None) => LinearProgress::indeterminate().into_any_element(),
+    }
 }
 
 struct Showcase {
     screens: Vec<(String, Vec<Item>)>,
     started: Instant,
+    built_at: Instant,
     last_frame: Option<Instant>,
     frame_times: Vec<f64>,
     reported_ready: bool,
@@ -119,6 +174,16 @@ fn checkbox_state(name: &str) -> CheckboxState {
         "checked" => CheckboxState::Checked,
         "indeterminate" => CheckboxState::Indeterminate,
         _ => CheckboxState::Unchecked,
+    }
+}
+
+fn icon_kind(name: &str) -> Option<IconKind> {
+    match name {
+        "add" => Some(IconKind::Add),
+        "remove" => Some(IconKind::Remove),
+        "close" => Some(IconKind::Close),
+        "check" => Some(IconKind::Check),
+        _ => None,
     }
 }
 
@@ -267,6 +332,62 @@ impl Showcase {
                             }
                         }))
                     }
+                    "text_field" => {
+                        let label = text_field(item, "label").to_string();
+                        let value = text_field(item, "value").to_string();
+                        let supporting = item["supporting"].as_str().map(str::to_string);
+                        let error = item["error"].as_str().map(str::to_string);
+                        let leading = icon_kind(text_field(item, "leading"));
+                        let trailing = icon_kind(text_field(item, "trailing"));
+                        let filled = flag(item, "filled", true);
+                        let max = item["max"].as_u64().map(|max| max as usize);
+                        Item::TextField(cx.new(|cx| {
+                            let mut field = TextField::new(id, label, cx)
+                                .value(value)
+                                .filled(filled);
+                            if let Some(max) = max {
+                                field = field.max_chars(max);
+                            }
+                            if let Some(text) = supporting {
+                                field = field.supporting(text);
+                            }
+                            if let Some(text) = error {
+                                field = field.error(text);
+                            }
+                            if let Some(kind) = leading {
+                                field = field.leading_icon(kind);
+                            }
+                            if let Some(kind) = trailing {
+                                field = field.trailing_icon(kind);
+                            }
+                            field
+                        }))
+                    }
+                    "card" => {
+                        let variant = card_variant(text_field(item, "variant"));
+                        let clickable = flag(item, "clickable", false);
+                        let body = text_field(item, "text").to_string();
+                        Item::Card(cx.new(|cx| {
+                            Card::new(id, variant, cx)
+                                .clickable(clickable)
+                                .content(move |_, _| div().child(body.clone()).into_any_element())
+                        }))
+                    }
+                    "list_item" => Item::ListItem(ListSpec {
+                        headline: text_field(item, "headline").to_string(),
+                        supporting: item["supporting"].as_str().map(str::to_string),
+                        third: item["third"].as_str().map(str::to_string),
+                        leading: icon_kind(text_field(item, "leading")),
+                        trailing: item["trailing"].as_str().map(str::to_string),
+                    }),
+                    "linear_progress" | "circular_progress" => Item::Progress(ProgressSpec {
+                        value: if flag(item, "indeterminate", false) {
+                            None
+                        } else {
+                            Some(number(item, "value", 0.0))
+                        },
+                        circular: text_field(item, "kind") == "circular_progress",
+                    }),
                     "divider" => Item::Divider,
                     "badge" => match text_field(item, "content") {
                         "dot" => Item::Badge(None),
@@ -299,6 +420,7 @@ impl Showcase {
         Self {
             screens,
             started,
+            built_at: Instant::now(),
             last_frame: None,
             frame_times: Vec::new(),
             reported_ready: false,
@@ -310,7 +432,8 @@ impl Showcase {
         if !self.reported_ready {
             self.reported_ready = true;
             let startup = (now - self.started).as_secs_f64() * 1000.0;
-            report(json!({"event": "ready", "startup_ms": startup}));
+            let build = (self.built_at - self.started).as_secs_f64() * 1000.0;
+            report(json!({"event": "ready", "startup_ms": startup, "build_ms": build}));
         }
         if let Some(last) = self.last_frame {
             self.frame_times.push((now - last).as_secs_f64() * 1000.0);
@@ -363,6 +486,10 @@ fn render_item(item: &Item, theme: &MaterialTheme) -> AnyElement {
         Item::Slider(view) => view.clone().into_any_element(),
         Item::RangeSlider(view) => view.clone().into_any_element(),
         Item::Chip(view) => view.clone().into_any_element(),
+        Item::TextField(view) => view.clone().into_any_element(),
+        Item::Card(view) => view.clone().into_any_element(),
+        Item::ListItem(spec) => build_list_item(spec).into_any_element(),
+        Item::Progress(spec) => build_progress(*spec),
         Item::Divider => div()
             .w(px(160.0))
             .child(HorizontalDivider::new())
@@ -432,7 +559,9 @@ fn main() {
 
     let started = Instant::now();
     run_app(
-        AppConfig::new(seed).size(1280.0, 2000.0),
+        AppConfig::new(seed)
+            .size(1280.0, 2000.0)
+            .title("Material 3 showcase"),
         move |_, cx| cx.new(|cx| Showcase::new(cx, &spec, toggle, started)),
     );
 }

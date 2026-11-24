@@ -39,7 +39,15 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Card
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
@@ -335,6 +343,95 @@ fun ShowcaseItem(item: JsonObject, scheme: ColorScheme, typography: Typography) 
                 } else {
                     AssistChip(onClick = {}, label = { Text(label) }, leadingIcon = leadingIcon)
                 }
+            }
+        }
+        "text_field" -> {
+            val label = field(item, "label")
+            val supporting = item["supporting"]?.jsonPrimitive?.content
+            val error = item["error"]?.jsonPrimitive?.content
+            val leading = item["leading"]?.jsonPrimitive?.content
+            val trailing = item["trailing"]?.jsonPrimitive?.content
+            val filled = item["filled"]?.jsonPrimitive?.content != "false"
+            val max = item["max"]?.jsonPrimitive?.content?.toInt()
+            var text by remember { mutableStateOf(field(item, "value")) }
+            val leadingSlot: (@Composable () -> Unit)? = leading?.let { glyph -> { Text(glyph) } }
+            val trailingSlot: (@Composable () -> Unit)? = trailing?.let { glyph -> { Text(glyph) } }
+            val message: (@Composable () -> Unit)? = (error ?: supporting)?.let { value -> { Text(value) } }
+            val onValue: (String) -> Unit = { value -> if (max == null || value.length <= max) text = value }
+            if (filled) {
+                TextField(
+                    value = text,
+                    onValueChange = onValue,
+                    label = { Text(label) },
+                    supportingText = message,
+                    isError = error != null,
+                    leadingIcon = leadingSlot,
+                    trailingIcon = trailingSlot,
+                    modifier = Modifier.width(280.dp),
+                )
+            } else {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = onValue,
+                    label = { Text(label) },
+                    supportingText = message,
+                    isError = error != null,
+                    leadingIcon = leadingSlot,
+                    trailingIcon = trailingSlot,
+                    modifier = Modifier.width(280.dp),
+                )
+            }
+        }
+        "card" -> {
+            val text = field(item, "text")
+            val clickable = item["clickable"]?.jsonPrimitive?.content == "true"
+            val body: @Composable () -> Unit = {
+                Text(text, modifier = Modifier.padding(16.dp))
+            }
+            when (field(item, "variant")) {
+                "filled" -> Card(modifier = Modifier.width(280.dp), content = body)
+                "outlined" -> OutlinedCard(modifier = Modifier.width(280.dp), content = body)
+                else -> if (clickable) {
+                    ElevatedCard(onClick = {}, modifier = Modifier.width(280.dp), content = body)
+                } else {
+                    ElevatedCard(modifier = Modifier.width(280.dp), content = body)
+                }
+            }
+        }
+        "list_item" -> {
+            val leading = item["leading"]?.jsonPrimitive?.content
+            val trailing = item["trailing"]?.jsonPrimitive?.content
+            val supporting = item["supporting"]?.jsonPrimitive?.content
+            val third = item["third"]?.jsonPrimitive?.content
+            ListItem(
+                headlineContent = { Text(field(item, "headline")) },
+                supportingContent = (supporting ?: third)?.let { value ->
+                    {
+                        Column {
+                            Text(value)
+                            if (supporting != null && third != null) Text(third)
+                        }
+                    }
+                },
+                leadingContent = leading?.let { glyph -> { Text(glyph) } },
+                trailingContent = trailing?.let { glyph -> { Text(glyph) } },
+                modifier = Modifier.width(280.dp),
+            )
+        }
+        "linear_progress" -> {
+            if (item["indeterminate"]?.jsonPrimitive?.content == "true") {
+                LinearProgressIndicator(modifier = Modifier.width(240.dp))
+            } else {
+                val value = item["value"]?.jsonPrimitive?.content?.toFloat() ?: 0f
+                LinearProgressIndicator(progress = { value }, modifier = Modifier.width(240.dp))
+            }
+        }
+        "circular_progress" -> {
+            if (item["indeterminate"]?.jsonPrimitive?.content == "true") {
+                CircularProgressIndicator()
+            } else {
+                val value = item["value"]?.jsonPrimitive?.content?.toFloat() ?: 0f
+                CircularProgressIndicator(progress = { value })
             }
         }
         "divider" -> HorizontalDivider(modifier = Modifier.width(160.dp))

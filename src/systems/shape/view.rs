@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn holds_before_morphing_then_wraps_around() {
         assert_eq!(cycle_state(0.5, 1.0, 1.0, 3), (0, 0.0));
-        let (from, progress) = cycle_state(2.5, 1.0, 1.0, 3);
+        let (from, progress) = cycle_state(3.5, 1.0, 1.0, 3);
         assert_eq!(from, 1);
         assert!(progress > 0.0);
         assert_eq!(cycle_state(6.5, 1.0, 1.0, 3).0, 0);

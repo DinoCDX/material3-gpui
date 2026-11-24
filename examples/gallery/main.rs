@@ -281,7 +281,7 @@ impl Render for Gallery {
 
 fn main() {
     run_app(
-        AppConfig::new(SEEDS[0]).size(1280.0, 1800.0),
+        AppConfig::new(SEEDS[0]).size(1280.0, 1800.0).title("Material 3 gallery"),
         |_, cx| cx.new(Gallery::new),
     );
 }

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -12,10 +12,12 @@ use gpui::{
     IntoElement, Render, Window, WindowBounds, WindowOptions, canvas, div, point, px, quad, size,
 };
 use gpui::AppContext;
+use gpui::{SharedString, TitlebarOptions};
 use material_color_utils::utils::color_utils::Argb;
 use material3_gpui::prelude::*;
 use serde_json::{Value, json};
 
+#[cfg(unix)]
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(500);
 const HISTORY_LEN: usize = 120;
 const CHART_WIDTH: f32 = 300.0;
@@ -40,6 +42,8 @@ struct ChildStats {
     rss_kb: u64,
     cpu_percent: f32,
     startup_ms: f64,
+    build_ms: f64,
+    exited: bool,
     frame_avg_ms: f64,
     frame_min_ms: f64,
     frame_p95_ms: f64,
@@ -54,6 +58,7 @@ struct ChildStats {
 struct Shared {
     stats: Vec<ChildStats>,
     stdins: Vec<(String, ChildStdin)>,
+    processes: Vec<(String, Child)>,
 }
 
 type SharedState = Arc<Mutex<Shared>>;
@@ -108,7 +113,10 @@ fn apply_event(state: &SharedState, name: &str, event: &Value) {
         return;
     };
     match event["event"].as_str() {
-        Some("ready") => stats.startup_ms = number(event, "startup_ms"),
+        Some("ready") => {
+            stats.startup_ms = number(event, "startup_ms");
+            stats.build_ms = number(event, "build_ms");
+        }
         Some("frames") => {
             stats.frame_avg_ms = number(event, "avg_ms");
             stats.frame_min_ms = number(event, "min_ms");
@@ -142,6 +150,7 @@ fn spawn_child(state: &SharedState, name: &str, mut command: Command) {
             ..Default::default()
         });
         shared.stdins.push((name.to_string(), stdin));
+        shared.processes.push((name.to_string(), child));
     }
     let reader_state = Arc::clone(state);
     let reader_name = name.to_string();
@@ -168,19 +177,49 @@ fn read_process(pid: u32, _stats: &mut ChildStats) -> Option<(u64, f32)> {
 }
 
 #[cfg(windows)]
+mod win {
+    use std::mem::{size_of, zeroed};
+
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows_sys::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+    use windows_sys::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+    };
+
+    fn ticks(time: FILETIME) -> u64 {
+        (u64::from(time.dwHighDateTime) << 32) | u64::from(time.dwLowDateTime)
+    }
+
+    pub fn sample(pid: u32) -> Option<(u64, f64)> {
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid);
+            if handle.is_null() {
+                return None;
+            }
+            let mut counters: PROCESS_MEMORY_COUNTERS = zeroed();
+            let cb = size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+            counters.cb = cb;
+            let memory_ok = GetProcessMemoryInfo(handle, &mut counters, cb) != 0;
+            let mut created: FILETIME = zeroed();
+            let mut exited: FILETIME = zeroed();
+            let mut kernel: FILETIME = zeroed();
+            let mut user: FILETIME = zeroed();
+            let times_ok =
+                GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) != 0;
+            CloseHandle(handle);
+            if !memory_ok || !times_ok {
+                return None;
+            }
+            let rss_kb = counters.WorkingSetSize as u64 / 1024;
+            let cpu_seconds = (ticks(kernel) + ticks(user)) as f64 / 10_000_000.0;
+            Some((rss_kb, cpu_seconds))
+        }
+    }
+}
+
+#[cfg(windows)]
 fn read_process(pid: u32, stats: &mut ChildStats) -> Option<(u64, f32)> {
-    let script = format!(
-        "$p = Get-Process -Id {pid} -ErrorAction Stop; $c = [System.Globalization.CultureInfo]::InvariantCulture; \
-         [string]::Format($c, '{{0}} {{1}}', [long]($p.WorkingSet64 / 1KB), $p.TotalProcessorTime.TotalSeconds)"
-    );
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&output.stdout);
-    let mut fields = text.split_whitespace();
-    let rss: u64 = fields.next()?.parse().ok()?;
-    let cpu_seconds: f64 = fields.next()?.parse().ok()?;
+    let (rss_kb, cpu_seconds) = win::sample(pid)?;
     let now = Instant::now();
     let cores = std::thread::available_parallelism().map_or(1.0, |n| n.get() as f64);
     let percent = match stats.last_sample {
@@ -195,7 +234,7 @@ fn read_process(pid: u32, stats: &mut ChildStats) -> Option<(u64, f32)> {
         None => 0.0,
     };
     stats.last_sample = Some((cpu_seconds, now));
-    Some((rss, percent))
+    Some((rss_kb, percent))
 }
 
 fn sample_processes(state: SharedState) {
@@ -203,26 +242,47 @@ fn sample_processes(state: SharedState) {
         loop {
             thread::sleep(SAMPLE_INTERVAL);
             let mut shared = state.lock().expect("state lock");
-            for stats in shared.stats.iter_mut() {
-                let pid = stats.pid;
-                let Some((rss, cpu)) = read_process(pid, stats) else {
+            let Shared {
+                stats, processes, ..
+            } = &mut *shared;
+            for (name, child) in processes.iter_mut() {
+                if let Ok(Some(_)) = child.try_wait()
+                    && let Some(entry) = stats.iter_mut().find(|entry| &entry.name == name)
+                {
+                    entry.exited = true;
+                }
+            }
+            for entry in stats.iter_mut().filter(|entry| !entry.exited) {
+                let pid = entry.pid;
+                let Some((rss, cpu)) = read_process(pid, entry) else {
                     continue;
                 };
-                stats.rss_kb = rss;
-                stats.cpu_percent = cpu;
+                entry.rss_kb = rss;
+                entry.cpu_percent = cpu;
                 let sample = Sample {
                     rss_mb: rss as f32 / 1024.0,
                     cpu,
-                    frame_avg_ms: stats.frame_avg_ms as f32,
+                    frame_avg_ms: entry.frame_avg_ms as f32,
                 };
-                stats.peak_rss_mb = stats.peak_rss_mb.max(sample.rss_mb);
-                stats.history.push_back(sample);
-                if stats.history.len() > HISTORY_LEN {
-                    stats.history.pop_front();
+                entry.peak_rss_mb = entry.peak_rss_mb.max(sample.rss_mb);
+                entry.history.push_back(sample);
+                if entry.history.len() > HISTORY_LEN {
+                    entry.history.pop_front();
                 }
             }
         }
     });
+}
+
+fn stop_all(state: &SharedState) {
+    let mut shared = state.lock().expect("state lock");
+    for (_, child) in shared.processes.iter_mut() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    shared.processes.clear();
+    shared.stdins.clear();
+    shared.stats.clear();
 }
 
 fn send_command(state: &SharedState, command: Value) {
@@ -350,9 +410,10 @@ fn child_panel(stats: &ChildStats, style: ChartStyle) -> impl IntoElement {
     let cpu_max = cpu_values.iter().copied().fold(CPU_CHART_FLOOR, f32::max);
     let frame_max = frame_values.iter().copied().fold(FRAME_CHART_FLOOR_MS, f32::max);
 
+    let state = if stats.exited { " · exited" } else { "" };
     let heading = format!(
-        "{} · pid {} · startup {:.0} ms · {} frames",
-        stats.name, stats.pid, stats.startup_ms, stats.frames_seen
+        "{} · pid {} · startup {:.0} ms (build {:.0} ms) · {} frames{}",
+        stats.name, stats.pid, stats.startup_ms, stats.build_ms, stats.frames_seen, state
     );
     let frame_line = format!(
         "frame ms  avg {:.2}  min {:.2}  p95 {:.2}  max {:.2}",
@@ -416,6 +477,7 @@ struct Launcher {
     rust_button: Entity<Button>,
     kotlin_button: Entity<Button>,
     theme_button: Entity<Button>,
+    stop_button: Entity<Button>,
 }
 
 impl Launcher {
@@ -450,11 +512,18 @@ impl Launcher {
                     send_command(&theme_state, json!({"cmd": "toggle_theme"}));
                 })
         });
+        let stop_state = Arc::clone(&state);
+        let stop_button = cx.new(|cx| {
+            Button::new("stop-all", "Stop all", cx)
+                .variant(ButtonVariant::Text)
+                .on_click(move |_, _| stop_all(&stop_state))
+        });
         Self {
             state,
             rust_button,
             kotlin_button,
             theme_button,
+            stop_button,
         }
     }
 }
@@ -506,7 +575,8 @@ impl Render for Launcher {
                     .gap(px(12.0))
                     .child(self.rust_button.clone())
                     .child(self.kotlin_button.clone())
-                    .child(self.theme_button.clone()),
+                    .child(self.theme_button.clone())
+                    .child(self.stop_button.clone()),
             )
             .child(body);
         div()
@@ -526,6 +596,10 @@ fn main() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some(SharedString::from("Material 3 harness")),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             move |_, cx| cx.new(|cx| Launcher::new(cx, state)),
