@@ -123,7 +123,12 @@ impl Render for IconButton {
         } else {
             size.square_shape
         };
-        let colors = variant.colors(cx.theme(), selected);
+        let engaged = if self.toggleable {
+            selected
+        } else {
+            variant.is_engaged_by_default()
+        };
+        let colors = variant.colors(cx.theme(), engaged);
         let icon_color = colors.content;
         let icon = self.icon.element(size.icon_size, window, cx);
 

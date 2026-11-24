@@ -9,6 +9,7 @@ pub mod icon_button;
 pub mod radio_button;
 pub mod slider;
 pub mod switch;
+pub mod text_field;
 
 use std::rc::Rc;
 

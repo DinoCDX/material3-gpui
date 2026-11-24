@@ -12,6 +12,8 @@ pub use crate::components::radio_button::RadioButton;
 pub use crate::components::slider::math::SliderRange;
 pub use crate::components::slider::{RangeSlider, Slider};
 pub use crate::components::switch::Switch;
+pub use crate::components::text_field::TextField;
+pub use crate::components::text_field::editing::Editing;
 pub use crate::components::button::Button;
 pub use crate::components::button::style::ButtonVariant;
 pub use crate::components::button::tokens::{ButtonShape, ButtonSize};

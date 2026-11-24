@@ -2,7 +2,7 @@ use std::io::{BufRead, Write, stdin, stdout};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use gpui::prelude::*;
 use gpui::{AnyElement, App, AppContext, Context, Entity, IntoElement, Render, Window, div, px};
@@ -10,6 +10,7 @@ use material3_gpui::prelude::*;
 use serde_json::{Value, json};
 
 const FRAMES_PER_REPORT: usize = 60;
+const COMMAND_POLL_MS: u64 = 50;
 const DEFAULT_SPEC: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/spec/showcase.json");
 
 enum Item {
@@ -30,7 +31,6 @@ enum Item {
 
 struct Showcase {
     screens: Vec<(String, Vec<Item>)>,
-    toggle: Arc<AtomicBool>,
     started: Instant,
     last_frame: Option<Instant>,
     frame_times: Vec<f64>,
@@ -278,9 +278,26 @@ impl Showcase {
             }
             screens.push((text_field(screen, "title").to_string(), items));
         }
+        let flag = Arc::clone(&toggle);
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(COMMAND_POLL_MS))
+                    .await;
+                let alive = this.update(cx, |_, cx| {
+                    if flag.swap(false, Ordering::SeqCst) {
+                        MaterialTheme::toggle_mode(cx);
+                        cx.notify();
+                    }
+                });
+                if alive.is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         Self {
             screens,
-            toggle,
             started,
             last_frame: None,
             frame_times: Vec::new(),
@@ -356,12 +373,8 @@ fn render_item(item: &Item, theme: &MaterialTheme) -> AnyElement {
 }
 
 impl Render for Showcase {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.record_frame();
-        if self.toggle.swap(false, Ordering::SeqCst) {
-            MaterialTheme::toggle_mode(cx);
-        }
-        window.request_animation_frame();
 
         let theme = cx.theme();
         let mut column = div()

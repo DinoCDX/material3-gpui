@@ -1,9 +1,10 @@
 pub mod math;
 pub mod tokens;
+pub mod track;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, Context, DispatchPhase, Entity, ElementId, FocusHandle, Hsla, IntoElement,
+    App, Bounds, Context, DispatchPhase, Div, ElementId, Entity, FocusHandle, Hsla, IntoElement,
     MouseButton, MouseMoveEvent, Pixels, Render, SharedString, Window, canvas, div, px,
 };
 
@@ -14,6 +15,7 @@ use crate::systems::theme::{ActiveTheme, MaterialTheme};
 use crate::tokens::color::ColorRole;
 use crate::tokens::typography::TypeStyle;
 use math::SliderRange;
+use track::{Piece, range_pieces, single_pieces};
 use tokens::{
     DISABLED_ACTIVE_OPACITY, DISABLED_HANDLE_OPACITY, DISABLED_INACTIVE_OPACITY,
     DISABLED_STOP_OPACITY, FOCUS_HANDLE_WIDTH, HANDLE_HEIGHT, HANDLE_WIDTH, LABEL_AREA_HEIGHT,
@@ -63,16 +65,26 @@ fn fraction_from_x(bounds: Option<Bounds<Pixels>>, x: Pixels) -> Option<f32> {
     Some(((f32::from(&x) - left) / width).clamp(0.0, 1.0))
 }
 
-fn track_segment(from: f32, to: f32, width: f32, color: Hsla) -> impl IntoElement {
+fn draw_piece(root: Div, piece: Piece, colors: SliderColors) -> Div {
     let top = LABEL_AREA_HEIGHT + (HANDLE_HEIGHT - TRACK_HEIGHT) / 2.0;
-    div()
-        .absolute()
-        .top(px(top))
-        .left(px(from * width))
-        .w(px((to - from).max(0.0) * width))
-        .h(px(TRACK_HEIGHT))
-        .rounded(px(TRACK_HEIGHT / 2.0))
-        .bg(color)
+    let color = if piece.active {
+        colors.active
+    } else {
+        colors.inactive
+    };
+    root.child(
+        div()
+            .absolute()
+            .top(px(top))
+            .left(px(piece.left))
+            .w(px(piece.right - piece.left))
+            .h(px(TRACK_HEIGHT))
+            .rounded_tl(px(piece.round_left))
+            .rounded_bl(px(piece.round_left))
+            .rounded_tr(px(piece.round_right))
+            .rounded_br(px(piece.round_right))
+            .bg(color),
+    )
 }
 
 fn handle_bar(fraction: f32, width: f32, handle_width: f32, color: Hsla) -> impl IntoElement {
@@ -336,9 +348,9 @@ impl Render for Slider {
         if dragging {
             root = root.child(drag_listener(view.clone(), slider_drag, slider_handler));
         }
-        root = root
-            .child(track_segment(0.0, 1.0, width, colors.inactive))
-            .child(track_segment(0.0, fraction, width, colors.active));
+        for piece in single_pieces(width, fraction * width, handle_width, TRACK_HEIGHT / 2.0) {
+            root = draw_piece(root, piece, colors);
+        }
         if self.range.steps > 0 {
             for stop in self.range.stop_fractions() {
                 root = root.child(stop_dot(stop, width, colors.stop));
@@ -558,9 +570,15 @@ impl Render for RangeSlider {
         if dragging {
             root = root.child(drag_listener(view.clone(), range_drag, range_handler));
         }
-        root = root
-            .child(track_segment(0.0, 1.0, width, colors.inactive))
-            .child(track_segment(low, high, width, colors.active));
+        for piece in range_pieces(
+            width,
+            low * width,
+            high * width,
+            handle_width,
+            TRACK_HEIGHT / 2.0,
+        ) {
+            root = draw_piece(root, piece, colors);
+        }
         if self.range.steps > 0 {
             for stop in self.range.stop_fractions() {
                 root = root.child(stop_dot(stop, width, colors.stop));

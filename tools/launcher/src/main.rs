@@ -420,6 +420,15 @@ struct Launcher {
 
 impl Launcher {
     fn new(cx: &mut Context<Self>, state: SharedState) -> Self {
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(SAMPLE_INTERVAL).await;
+                if this.update(cx, |_, cx| cx.notify()).is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         let rust_state = Arc::clone(&state);
         let rust_button = cx.new(|cx| {
             Button::new("open-rust", "Open Rust showcase", cx)
@@ -451,8 +460,7 @@ impl Launcher {
 }
 
 impl Render for Launcher {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        window.request_animation_frame();
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let surface = theme.color(ColorRole::SurfaceContainer);
         let text = theme.color(ColorRole::OnSurface);

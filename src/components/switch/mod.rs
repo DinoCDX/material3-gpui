@@ -179,7 +179,16 @@ impl Render for Switch {
             .bg(colors.track)
             .child(handle);
         if !self.selected {
-            track = track.border_2().border_color(colors.track_outline);
+            track = track.child(
+                div()
+                    .absolute()
+                    .top(px(0.0))
+                    .left(px(0.0))
+                    .size_full()
+                    .rounded(px(TRACK_HEIGHT / 2.0))
+                    .border_2()
+                    .border_color(colors.track_outline),
+            );
         }
 
         let view = cx.entity();

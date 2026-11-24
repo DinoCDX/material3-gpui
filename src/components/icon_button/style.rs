@@ -82,6 +82,10 @@ impl IconButtonVariant {
         }
     }
 
+    pub fn is_engaged_by_default(self) -> bool {
+        matches!(self, Self::Filled | Self::FilledTonal)
+    }
+
     pub fn is_outlined(self) -> bool {
         matches!(self, Self::Outlined)
     }

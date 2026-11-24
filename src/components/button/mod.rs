@@ -149,6 +149,7 @@ impl Render for Button {
             TrackedText::new(self.label.clone(), size.label_style, label_color, label_family);
 
         let row = div()
+            .h(px(size.container_height))
             .flex()
             .items_center()
             .justify_center()
